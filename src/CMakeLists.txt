@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.0)
 project(EntityComponentSystem)
 
-set(EntityComponentSystem_SOURCES
-    )
+set(EntityComponentSystem_HEADERS
+    EC/Meta.hpp)
 
-add_library(EntityComponentSystem
-    ${EntityComponentSystem_SOURCES})
+add_library(EntityComponentSystem INTERFACE)
+target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_SOURCE_DIR})
 
 
 include_directories(${CMAKE_SOURCE_DIR})
@@ -34,6 +34,19 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 
-install(TARGETS EntityComponentSystem DESTINATION lib)
+install(FILES ${EntityComponentSystem_HEADERS} DESTINATION include/EC)
 
+
+find_package(GTest)
+if(GTEST_FOUND)
+    set(UnitTests_SOURCES
+        test/MetaTest.cpp
+        test/Main.cpp)
+
+    add_executable(UnitTests ${UnitTests_SOURCES})
+    target_link_libraries(UnitTests EntityComponentSystem ${GTEST_LIBRARIES})
+
+    enable_testing()
+    add_test(NAME UnitTests COMMAND UnitTests)
+endif()
 
