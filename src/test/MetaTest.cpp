@@ -78,13 +78,13 @@ TEST(Meta, Bitset)
     EC::Bitset<listAll, listTagsAll> bitset;
     EXPECT_EQ(bitset.size(), listAll::size + listTagsAll::size);
 
-    bitset[1] = true;
+    bitset[EC::Meta::IndexOf<C1, listAll>::value] = true;
     EXPECT_TRUE(bitset.getComponentBit<C1>());
     bitset.flip();
     EXPECT_FALSE(bitset.getComponentBit<C1>());
 
     bitset.reset();
-    bitset[4] = true;
+    bitset[listAll::size + EC::Meta::IndexOf<T0, listTagsAll>::value] = true;
     EXPECT_TRUE(bitset.getTagBit<T0>());
     bitset.flip();
     EXPECT_FALSE(bitset.getTagBit<T0>());
