@@ -7,6 +7,7 @@ set(EntityComponentSystem_HEADERS
     EC/Meta/Contains.hpp
     EC/Meta/ContainsAll.hpp
     EC/Meta/IndexOf.hpp
+    EC/Meta/Morph.hpp
     EC/Meta/Meta.hpp
     EC/Bitset.hpp
     EC/EC.hpp)

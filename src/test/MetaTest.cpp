@@ -1,6 +1,7 @@
 
 #include <gtest/gtest.h>
 
+#include <tuple>
 #include <EC/Meta/Meta.hpp>
 #include <EC/EC.hpp>
 
@@ -123,5 +124,35 @@ TEST(Meta, Combine)
     listAllTemp = EC::Meta::IndexOf<T1, ListAll>::value;
     combinedAllTemp = EC::Meta::IndexOf<T1, CombinedAll>::value;
     EXPECT_EQ(combinedAllTemp, listAllTemp);
+}
+
+TEST(Meta, Morph)
+{
+    using TupleAll = std::tuple<C0, C1, C2, C3>;
+    using MorphedTuple = EC::Meta::Morph<TupleAll, EC::Meta::TypeList<> >;
+
+    int morphedTupleTemp = MorphedTuple::size;
+    int componentsTemp = ListComponentsAll::size;
+    EXPECT_EQ(morphedTupleTemp, componentsTemp);
+
+    morphedTupleTemp = EC::Meta::IndexOf<C0, MorphedTuple>::value;
+    componentsTemp = EC::Meta::IndexOf<C0, ListComponentsAll>::value;
+    EXPECT_EQ(morphedTupleTemp, componentsTemp);
+
+    morphedTupleTemp = EC::Meta::IndexOf<C1, MorphedTuple>::value;
+    componentsTemp = EC::Meta::IndexOf<C1, ListComponentsAll>::value;
+    EXPECT_EQ(morphedTupleTemp, componentsTemp);
+
+    morphedTupleTemp = EC::Meta::IndexOf<C2, MorphedTuple>::value;
+    componentsTemp = EC::Meta::IndexOf<C2, ListComponentsAll>::value;
+    EXPECT_EQ(morphedTupleTemp, componentsTemp);
+
+    morphedTupleTemp = EC::Meta::IndexOf<C3, MorphedTuple>::value;
+    componentsTemp = EC::Meta::IndexOf<C3, ListComponentsAll>::value;
+    EXPECT_EQ(morphedTupleTemp, componentsTemp);
+
+    using MorphedComponents = EC::Meta::Morph<ListComponentsAll, std::tuple<> >;
+    bool isSame = std::is_same<MorphedComponents, TupleAll>::value;
+    EXPECT_TRUE(isSame);
 }
 
