@@ -1,7 +1,7 @@
 
 #include <gtest/gtest.h>
 
-#include <EC/Meta.hpp>
+#include <EC/Meta/Meta.hpp>
 
 struct C0 {};
 struct C1 {};

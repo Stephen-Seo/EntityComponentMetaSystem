@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.0)
 project(EntityComponentSystem)
 
 set(EntityComponentSystem_HEADERS
-    EC/Meta.hpp)
+    EC/Meta/TypeList.hpp
+    EC/Meta/Contains.hpp
+    EC/Meta/IndexOf.hpp)
 
 add_library(EntityComponentSystem INTERFACE)
 target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_SOURCE_DIR})
