@@ -3,6 +3,7 @@ project(EntityComponentSystem)
 
 set(EntityComponentSystem_HEADERS
     EC/Meta/TypeList.hpp
+    EC/Meta/Combine.hpp
     EC/Meta/Contains.hpp
     EC/Meta/ContainsAll.hpp
     EC/Meta/IndexOf.hpp
