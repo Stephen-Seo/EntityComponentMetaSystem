@@ -2,6 +2,7 @@
 #ifndef EC_META_CONTAINS_HPP
 #define EC_META_CONTAINS_HPP
 
+#include <type_traits>
 #include "TypeList.hpp"
 
 namespace EC
@@ -25,7 +26,7 @@ namespace EC
         };
 
         template <typename T, typename TTypeList>
-        using Contains = std::integral_constant<bool, ContainsHelper<T, TTypeList>::value >;
+        using Contains = std::integral_constant<bool, ContainsHelper<T, TTypeList>::value>;
     }
 }
 

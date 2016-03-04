@@ -4,7 +4,11 @@ project(EntityComponentSystem)
 set(EntityComponentSystem_HEADERS
     EC/Meta/TypeList.hpp
     EC/Meta/Contains.hpp
-    EC/Meta/IndexOf.hpp)
+    EC/Meta/ContainsAll.hpp
+    EC/Meta/IndexOf.hpp
+    EC/Meta/Meta.hpp
+    EC/Bitset.hpp
+    EC/EC.hpp)
 
 add_library(EntityComponentSystem INTERFACE)
 target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_SOURCE_DIR})

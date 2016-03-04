@@ -2,8 +2,6 @@
 #ifndef EC_META_TYPE_LIST_HPP
 #define EC_META_TYPE_LIST_HPP
 
-#include <type_traits>
-
 namespace EC
 {
     namespace Meta
