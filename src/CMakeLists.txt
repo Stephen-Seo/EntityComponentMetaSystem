@@ -10,6 +10,7 @@ set(EntityComponentSystem_HEADERS
     EC/Meta/Morph.hpp
     EC/Meta/Meta.hpp
     EC/Bitset.hpp
+    EC/Manager.hpp
     EC/EC.hpp)
 
 add_library(EntityComponentSystem INTERFACE)

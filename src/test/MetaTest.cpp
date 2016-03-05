@@ -159,3 +159,25 @@ TEST(Meta, Morph)
     EXPECT_TRUE(isSame);
 }
 
+TEST(Meta, TypeListGet)
+{
+    bool isSame = std::is_same<C0, EC::Meta::TypeListGet<ListAll, 0> >::value;
+    EXPECT_TRUE(isSame);
+
+    isSame = std::is_same<C1, EC::Meta::TypeListGet<ListAll, 1> >::value;
+    EXPECT_TRUE(isSame);
+
+    isSame = std::is_same<C2, EC::Meta::TypeListGet<ListAll, 2> >::value;
+    EXPECT_TRUE(isSame);
+
+    isSame = std::is_same<C3, EC::Meta::TypeListGet<ListAll, 3> >::value;
+    EXPECT_TRUE(isSame);
+
+    const unsigned int temp = 4;
+    isSame = std::is_same<T0, EC::Meta::TypeListGet<ListAll, temp> >::value;
+    EXPECT_TRUE(isSame);
+
+    isSame = std::is_same<T1, EC::Meta::TypeListGet<ListAll, 5> >::value;
+    EXPECT_TRUE(isSame);
+}
+
