@@ -124,6 +124,9 @@ TEST(Meta, Combine)
     listAllTemp = EC::Meta::IndexOf<T1, ListAll>::value;
     combinedAllTemp = EC::Meta::IndexOf<T1, CombinedAll>::value;
     EXPECT_EQ(combinedAllTemp, listAllTemp);
+
+    bool same = std::is_same<CombinedAll, ListAll>::value;
+    EXPECT_TRUE(same);
 }
 
 TEST(Meta, Morph)
