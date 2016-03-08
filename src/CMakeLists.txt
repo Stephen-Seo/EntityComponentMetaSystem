@@ -46,7 +46,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 
-install(FILES ${EntityComponentSystem_HEADERS} DESTINATION include/EC)
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/EC DESTINATION include)
 
 
 find_package(GTest)
