@@ -227,5 +227,11 @@ TEST(Meta, Matching)
         bool isSame = std::is_same<ListSome, Matched>::value;
         EXPECT_TRUE(isSame);
     }
+
+    {
+        using Matched = EC::Meta::Matching<ListTagsAll, ListComponentsAll>::type;
+        bool isSame = std::is_same<EC::Meta::TypeList<>, Matched>::value;
+        EXPECT_TRUE(isSame);
+    }
 }
 

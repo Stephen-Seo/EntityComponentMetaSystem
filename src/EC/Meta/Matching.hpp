@@ -12,6 +12,7 @@ namespace EC
         template <typename TTypeListA, typename TTypeListB>
         struct MatchingHelper
         {
+            using type = TypeList<>;
         };
 
         template <typename TTypeListA, typename TTypeListB, typename... Matching>

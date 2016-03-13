@@ -1,6 +1,8 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
+
 #include <tuple>
 #include <EC/Meta/Meta.hpp>
 #include <EC/EC.hpp>
@@ -102,5 +104,15 @@ TEST(EC, Manager)
 
     std::size_t edata = std::get<std::size_t>(manager.getEntityInfo(0));
     EXPECT_EQ(edata, 1);
+
+    std::size_t e2 = manager.addEntity();
+
+    manager.addTag<T0>(e2);
+
+    auto updateTagOnly = [] (std::size_t id) {
+        std::cout << "UpdateTagOnly was run." << std::endl;
+    };
+
+    manager.forMatchingSignature<EC::Meta::TypeList<T0> >(updateTagOnly);
 }
 
