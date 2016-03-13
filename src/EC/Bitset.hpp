@@ -6,6 +6,7 @@
 #include "Meta/TypeList.hpp"
 #include "Meta/Combine.hpp"
 #include "Meta/IndexOf.hpp"
+#include "Meta/ForEach.hpp"
 
 namespace EC
 {
@@ -30,17 +31,14 @@ namespace EC
         template <typename Contents>
         static constexpr Bitset<ComponentsList, TagsList> generateBitset()
         {
-            //TODO
             Bitset<ComponentsList, TagsList> bitset;
-/*
-            for(unsigned int i = 0; i < Contents::size; ++i)
-            {
-                if(EC::Meta::Contains<EC::Meta::TypeListGet<Contents, i>, Combined>::value)
+
+            EC::Meta::forEach<Contents>([&bitset] (auto t) {
+                if(EC::Meta::Contains<decltype(t), Combined>::value)
                 {
-                    bitset[EC::Meta::IndexOf<EC::Meta::TypeListGet<Contents, i>, Combined>::value] = true;
+                    bitset[EC::Meta::IndexOf<decltype(t), Combined>::value] = true;
                 }
-            }
-*/
+            });
 
             return bitset;
         }

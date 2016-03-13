@@ -2,12 +2,15 @@ cmake_minimum_required(VERSION 3.0)
 project(EntityComponentSystem)
 
 set(EntityComponentSystem_HEADERS
-    EC/Meta/TypeList.hpp
     EC/Meta/Combine.hpp
     EC/Meta/Contains.hpp
     EC/Meta/ContainsAll.hpp
+    EC/Meta/ForEach.hpp
     EC/Meta/IndexOf.hpp
+    EC/Meta/Matching.hpp
     EC/Meta/Morph.hpp
+    EC/Meta/TypeList.hpp
+    EC/Meta/TypeListGet.hpp
     EC/Meta/Meta.hpp
     EC/Bitset.hpp
     EC/Manager.hpp
@@ -53,6 +56,7 @@ find_package(GTest)
 if(GTEST_FOUND)
     set(UnitTests_SOURCES
         test/MetaTest.cpp
+        test/ECTest.cpp
         test/Main.cpp)
 
     add_executable(UnitTests ${UnitTests_SOURCES})

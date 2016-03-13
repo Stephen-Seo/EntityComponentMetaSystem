@@ -20,6 +20,14 @@ using ListTagsAll = EC::Meta::TypeList<T0, T1>;
 
 using ListAll = EC::Meta::TypeList<C0, C1, C2, C3, T0, T1>;
 
+using ListSome = EC::Meta::TypeList<C1, C3, T1>;
+
+template <typename... STypes>
+struct Storage
+{
+    using type = std::tuple<std::vector<STypes>... >;
+};
+
 TEST(Meta, Contains)
 {
     int size = ListComponentsAll::size;
@@ -157,6 +165,13 @@ TEST(Meta, Morph)
     using MorphedComponents = EC::Meta::Morph<ListComponentsAll, std::tuple<> >;
     bool isSame = std::is_same<MorphedComponents, TupleAll>::value;
     EXPECT_TRUE(isSame);
+
+
+    using ComponentsStorage = EC::Meta::Morph<ListComponentsAll, Storage<> >;
+
+    isSame = std::is_same<ComponentsStorage::type,
+        std::tuple<std::vector<C0>, std::vector<C1>, std::vector<C2>, std::vector<C3> > >::value;
+    EXPECT_TRUE(isSame);
 }
 
 TEST(Meta, TypeListGet)
@@ -197,5 +212,20 @@ TEST(Meta, ForEach)
     EXPECT_TRUE(bitset[3]);
     EXPECT_FALSE(bitset[4]);
     EXPECT_FALSE(bitset[5]);
+}
+
+TEST(Meta, Matching)
+{
+    {
+        using Matched = EC::Meta::Matching<ListComponentsSome, ListComponentsAll>::type;
+        bool isSame = std::is_same<ListComponentsSome, Matched>::value;
+        EXPECT_TRUE(isSame);
+    }
+
+    {
+        using Matched = EC::Meta::Matching<ListSome, ListAll>::type;
+        bool isSame = std::is_same<ListSome, Matched>::value;
+        EXPECT_TRUE(isSame);
+    }
 }
 

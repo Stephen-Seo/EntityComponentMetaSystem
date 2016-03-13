@@ -7,4 +7,5 @@
 #include "IndexOf.hpp"
 #include "Morph.hpp"
 #include "ForEach.hpp"
+#include "Matching.hpp"
 
