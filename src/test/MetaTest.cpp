@@ -181,3 +181,21 @@ TEST(Meta, TypeListGet)
     EXPECT_TRUE(isSame);
 }
 
+TEST(Meta, ForEach)
+{
+    EC::Bitset<ListComponentsAll, ListTagsAll> bitset;
+
+    auto setBits = [&bitset] (auto t) {
+        bitset[EC::Meta::IndexOf<decltype(t), ListAll>::value] = true;
+    };
+
+    EC::Meta::forEach<ListComponentsSome>(setBits);
+
+    EXPECT_FALSE(bitset[0]);
+    EXPECT_TRUE(bitset[1]);
+    EXPECT_FALSE(bitset[2]);
+    EXPECT_TRUE(bitset[3]);
+    EXPECT_FALSE(bitset[4]);
+    EXPECT_FALSE(bitset[5]);
+}
+

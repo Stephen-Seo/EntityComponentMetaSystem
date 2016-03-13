@@ -6,4 +6,5 @@
 #include "ContainsAll.hpp"
 #include "IndexOf.hpp"
 #include "Morph.hpp"
+#include "ForEach.hpp"
 
