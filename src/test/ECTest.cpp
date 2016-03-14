@@ -109,10 +109,15 @@ TEST(EC, Manager)
 
     manager.addTag<T0>(e2);
 
-    auto updateTagOnly = [] (std::size_t id) {
+    std::size_t count = 0;
+
+    auto updateTagOnly = [&count] (std::size_t id) {
         std::cout << "UpdateTagOnly was run." << std::endl;
+        ++count;
     };
 
     manager.forMatchingSignature<EC::Meta::TypeList<T0> >(updateTagOnly);
+
+    EXPECT_EQ(2, count);
 }
 

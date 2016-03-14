@@ -111,6 +111,9 @@ namespace EC
                     // swap lhs entity with rhs entity
                     std::swap(entities[lhs], entities[rhs]);
 
+                    // clear deleted bitset
+                    std::get<BitsetType>(entities[rhs]).reset();
+
                     // inc/dec pointers
                     ++lhs; --rhs;
                 }
