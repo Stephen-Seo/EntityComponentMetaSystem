@@ -8,6 +8,11 @@
 #include <EC/EC.hpp>
 
 struct C0 {
+    C0(int x = 0, int y = 0) :
+    x(x),
+    y(y)
+    {}
+
     int x, y;
 };
 struct C1 {
@@ -60,18 +65,12 @@ TEST(EC, Manager)
     std::size_t e0 = manager.addEntity();
     std::size_t e1 = manager.addEntity();
 
-    manager.addComponent<C0>(e0);
+    manager.addComponent<C0>(e0, 5, 5);
     manager.addComponent<C1>(e0);
 
     manager.addComponent<C0>(e1);
     manager.addComponent<C1>(e1);
     manager.addTag<T0>(e1);
-
-    {
-        auto& pos = manager.getEntityData<C0>(e0);
-        pos.x = 5;
-        pos.y = 5;
-    }
 
     {
         auto& vel = manager.getEntityData<C1>(e0);

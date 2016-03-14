@@ -253,6 +253,8 @@ namespace EC
 
     EC::Manager must be created with a list of all used Components and all used tags.
 
+    Note that all components must have a default constructor.
+
     Example:
     \code{.cpp}
         EC::Manager<TypeList<C0, C1, C2>, TypeList<T0, T1>> manager;
@@ -349,7 +351,9 @@ namespace EC
     \code{.cpp}
         struct C0
         {
-            C0(int a, char b) : a(a), b(b)
+            // constructor is compatible as a default constructor
+            C0(int a = 0, char b = 'b') :
+            a(a), b(b)
             {}
 
             int a;
