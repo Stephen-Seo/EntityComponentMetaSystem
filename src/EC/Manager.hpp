@@ -98,18 +98,48 @@ namespace EC
             return std::get<std::vector<Component> >(componentsStorage).at(std::get<std::size_t>(entities.at(index)));
         }
 
+        template <typename Component>
+        bool hasComponent(std::size_t index) const
+        {
+            return std::get<BitsetType>(entities.at(index)).template getComponentBit<Component>();
+        }
+
+        template <typename Tag>
+        bool hasTag(std::size_t index) const
+        {
+            return std::get<BitsetType>(entities.at(index)).template getTagBit<Tag>();
+        }
+
         void cleanup()
         {
+            if(currentSize == 0)
+            {
+                return;
+            }
+
             std::size_t rhs = currentSize - 1;
             std::size_t lhs = 0;
 
             while(lhs < rhs)
             {
-                if(!std::get<bool>(entities[lhs]))
+                while(!std::get<bool>(entities[rhs]))
+                {
+                    --rhs;
+                    if(rhs == 0)
+                    {
+                        currentSize = 0;
+                        return;
+                    }
+                }
+                if(lhs >= rhs)
+                {
+                    break;
+                }
+                else if(!std::get<bool>(entities[lhs]))
                 {
                     // lhs is marked for deletion
                     // swap lhs entity with rhs entity
-                    std::swap(entities[lhs], entities[rhs]);
+                    std::swap(entities[lhs], entities.at(rhs));
 
                     // clear deleted bitset
                     std::get<BitsetType>(entities[rhs]).reset();

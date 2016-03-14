@@ -99,6 +99,16 @@ TEST(EC, Manager)
         EXPECT_EQ(pos.y, 7);
     }
 
+    {
+        bool has = manager.hasComponent<C0>(e1);
+
+        EXPECT_TRUE(has);
+
+        has = manager.hasTag<T0>(e1);
+
+        EXPECT_TRUE(has);
+    }
+
     manager.deleteEntity(e0);
     manager.cleanup();
 
@@ -119,5 +129,9 @@ TEST(EC, Manager)
     manager.forMatchingSignature<EC::Meta::TypeList<T0> >(updateTagOnly);
 
     EXPECT_EQ(2, count);
+
+    manager.deleteEntity(e1);
+    manager.deleteEntity(e2);
+    manager.cleanup();
 }
 

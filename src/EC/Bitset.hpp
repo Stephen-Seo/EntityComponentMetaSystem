@@ -17,9 +17,21 @@ namespace EC
         using Combined = EC::Meta::Combine<ComponentsList, TagsList>;
 
         template <typename Component>
+        constexpr auto getComponentBit() const
+        {
+            return (*this)[EC::Meta::IndexOf<Component, Combined>::value];
+        }
+
+        template <typename Component>
         constexpr auto getComponentBit()
         {
             return (*this)[EC::Meta::IndexOf<Component, Combined>::value];
+        }
+
+        template <typename Tag>
+        constexpr auto getTagBit() const
+        {
+            return (*this)[EC::Meta::IndexOf<Tag, Combined>::value];
         }
 
         template <typename Tag>
