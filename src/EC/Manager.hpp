@@ -129,12 +129,12 @@ namespace EC
             {
                 while(!std::get<bool>(entities[rhs]))
                 {
-                    --rhs;
                     if(rhs == 0)
                     {
                         currentSize = 0;
                         return;
                     }
+                    --rhs;
                 }
                 if(lhs >= rhs)
                 {
