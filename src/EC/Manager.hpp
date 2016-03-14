@@ -272,7 +272,8 @@ namespace EC
     \brief Adds an entity to the system, returning the ID of the entity.
 
     WARNING: The ID of an entity may change after calls to cleanup().
-    Only use the ID given during usage of forMatchingSignature().
+    Usage of entity IDs should be safe during initialization.
+    Otherwise, only use the ID given during usage of forMatchingSignature().
 */
 
 /*! \fn void EC::Manager::deleteEntity(std::size_t index)
