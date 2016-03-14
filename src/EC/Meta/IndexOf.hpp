@@ -13,16 +13,16 @@ namespace EC
         {
         };
 
-        template <typename T, typename... Types>
-        struct IndexOf<T, TypeList<T, Types...> > :
+        template <typename T, template <typename...> class TTypeList, typename... Types>
+        struct IndexOf<T, TTypeList<T, Types...> > :
             std::integral_constant<std::size_t, 0>
         {
         };
 
-        template <typename T, typename Type, typename... Types>
-        struct IndexOf<T, TypeList<Type, Types...> > :
+        template <typename T, template <typename...> class TTypeList, typename Type, typename... Types>
+        struct IndexOf<T, TTypeList<Type, Types...> > :
             std::integral_constant<std::size_t, 1 +
-                IndexOf<T, TypeList<Types...> >::value
+                IndexOf<T, TTypeList<Types...> >::value
             >
         {
         };

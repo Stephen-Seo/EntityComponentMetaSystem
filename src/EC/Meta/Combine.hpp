@@ -14,8 +14,8 @@ namespace EC
             using type = TypeList<>;
         };
 
-        template <typename... TypesA, typename... TypesB>
-        struct CombineHelper<TypeList<TypesA...>, TypeList<TypesB...> >
+        template <template <typename...> class TTypeListA, template <typename...> class TTypeListB, typename... TypesA, typename... TypesB>
+        struct CombineHelper<TTypeListA<TypesA...>, TTypeListB<TypesB...> >
         {
             using type = TypeList<TypesA..., TypesB...>;
         };

@@ -15,8 +15,8 @@ namespace EC
         {
         };
 
-        template <typename Type, typename... Types, typename TTypeListB>
-        struct ContainsAllHelper<TypeList<Type, Types...>, TTypeListB> :
+        template <template <typename...> class TTypeListA, typename Type, typename... Types, typename TTypeListB>
+        struct ContainsAllHelper<TTypeListA<Type, Types...>, TTypeListB> :
             std::conditional<
                 Contains<Type, TTypeListB>::value,
                 ContainsAllHelper<TypeList<Types...>, TTypeListB>,

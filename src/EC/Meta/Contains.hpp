@@ -15,12 +15,12 @@ namespace EC
         {
         };
 
-        template <typename T, typename Type, typename... Types>
-        struct ContainsHelper<T, TypeList<Type, Types...> > :
+        template <typename T, template <typename...> class TTypeList, typename Type, typename... Types>
+        struct ContainsHelper<T, TTypeList<Type, Types...> > :
             std::conditional<
                 std::is_same<T, Type>::value,
                 std::true_type,
-                ContainsHelper<T, TypeList<Types...> >
+                ContainsHelper<T, TTypeList<Types...> >
             >::type
         {
         };
