@@ -250,6 +250,13 @@ namespace EC
 
 /*! \class EC::Manager
     \brief Manages an EntityComponent system.
+
+    EC::Manager must be created with a list of all used Components and all used tags.
+
+    Example:
+    \code{.cpp}
+        EC::Manager<TypeList<C0, C1, C2>, TypeList<T0, T1>> manager;
+    \endcode
 */
 
 /*! \fn EC::Manager::Manager()
