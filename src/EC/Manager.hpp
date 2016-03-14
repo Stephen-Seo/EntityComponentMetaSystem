@@ -87,6 +87,11 @@ namespace EC
             return index < currentSize;
         }
 
+        bool isAlive(std::size_t index) const
+        {
+            return std::get<bool>(entities.at(index));
+        }
+
         const EntitiesTupleType& getEntityInfo(std::size_t index) const
         {
             return entities.at(index);
@@ -158,7 +163,7 @@ namespace EC
         template <typename Component, typename... Args>
         void addComponent(std::size_t entityID, Args&&... args)
         {
-            if(!hasEntity(entityID))
+            if(!hasEntity(entityID) || !isAlive(entityID))
             {
                 return;
             }
@@ -172,7 +177,7 @@ namespace EC
         template <typename Component>
         void removeComponent(std::size_t entityID)
         {
-            if(!hasEntity(entityID))
+            if(!hasEntity(entityID) || !isAlive(entityID))
             {
                 return;
             }
@@ -183,7 +188,7 @@ namespace EC
         template <typename Tag>
         void addTag(std::size_t entityID)
         {
-            if(!hasEntity(entityID))
+            if(!hasEntity(entityID) || !isAlive(entityID))
             {
                 return;
             }
@@ -194,7 +199,7 @@ namespace EC
         template <typename Tag>
         void removeTag(std::size_t entityID)
         {
-            if(!hasEntity(entityID))
+            if(!hasEntity(entityID) || !isAlive(entityID))
             {
                 return;
             }
