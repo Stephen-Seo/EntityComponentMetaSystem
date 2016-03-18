@@ -1,15 +1,11 @@
 image: seo.disparate/gcc-runner:latest
 
-
 stages:
     - build
     - test
 
 buildJob:
     stage: build
-    artifacts:
-        paths:
-            - buildDebug/
     tags:
         - docker
     script:
@@ -23,6 +19,9 @@ testJob:
     tags:
         - docker
     script:
+        - mkdir -p buildDebug
         - cd buildDebug
+        - cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=True ../src
+        - make
         - ./UnitTests
 
