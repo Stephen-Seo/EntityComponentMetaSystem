@@ -6,6 +6,8 @@ stages:
 
 buildJob:
     stage: build
+    tags:
+        - docker
     script:
         - mkdir buildDebug
         - cd buildDebug
@@ -14,6 +16,8 @@ buildJob:
 
 testJob:
     stage: test
+    tags:
+        - docker
     script:
         - cd buildDebug
         - ./UnitTests
