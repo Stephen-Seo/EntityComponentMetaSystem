@@ -1,8 +1,5 @@
 image: seo.disparate/gcc-runner:latest
 
-cache:
-    paths:
-        - buildDebug/
 
 stages:
     - build
@@ -10,6 +7,9 @@ stages:
 
 buildJob:
     stage: build
+    artifacts:
+        paths:
+            - buildDebug/
     tags:
         - docker
     script:
