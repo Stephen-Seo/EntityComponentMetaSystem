@@ -13,7 +13,7 @@ buildJob:
     tags:
         - docker
     script:
-        - mkdir buildDebug
+        - mkdir -p buildDebug
         - cd buildDebug
         - cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=True ../src
         - make
