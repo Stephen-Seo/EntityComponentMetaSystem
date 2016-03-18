@@ -1,4 +1,4 @@
-image: seodisparate/gcc-runner:latest
+image: seodisparate/gcc-runner
 
 stages:
     - build
