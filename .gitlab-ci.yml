@@ -1,5 +1,9 @@
 image: seo.disparate/gcc-runner:latest
 
+cache:
+    paths:
+        - buildDebug/
+
 stages:
     - build
     - test
