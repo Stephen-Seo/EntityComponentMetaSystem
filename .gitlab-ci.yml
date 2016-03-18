@@ -1,7 +1,4 @@
-image: gitlab/gitlab-runner:latest
-
-services:
-    - seo.disparate/gcc-runner:latest
+image: seo.disparate/gcc-runner:latest
 
 stages:
     - build
