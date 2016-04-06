@@ -172,10 +172,10 @@ namespace EC
                 return;
             }
 
-            Component component(args...);
+            Component component(std::forward<Args>(args)...);
 
             std::get<BitsetType>(entities[entityID]).template getComponentBit<Component>() = true;
-            std::get<std::vector<Component> >(componentsStorage)[std::get<std::size_t>(entities[entityID])] = component;
+            std::get<std::vector<Component> >(componentsStorage)[std::get<std::size_t>(entities[entityID])] = std::move(component);
         }
 
         template <typename Component>

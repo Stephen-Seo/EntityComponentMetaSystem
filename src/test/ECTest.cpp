@@ -2,8 +2,9 @@
 #include <gtest/gtest.h>
 
 #include <iostream>
-
 #include <tuple>
+#include <memory>
+
 #include <EC/Meta/Meta.hpp>
 #include <EC/EC.hpp>
 
@@ -34,6 +35,26 @@ using ListAll = EC::Meta::TypeList<C0, C1, C2, C3, T0, T1>;
 using EmptyList = EC::Meta::TypeList<>;
 
 using MixedList = EC::Meta::TypeList<C2, T1>;
+
+typedef std::unique_ptr<C0> C0Ptr;
+
+struct Base
+{
+    virtual int getInt()
+    {
+        return 0;
+    }
+};
+
+struct Derived : public Base
+{
+    virtual int getInt() override
+    {
+        return 1;
+    }
+};
+
+typedef std::unique_ptr<Base> TestPtr;
 
 TEST(EC, Bitset)
 {
@@ -132,5 +153,57 @@ TEST(EC, Manager)
     manager.deleteEntity(e1);
     manager.deleteEntity(e2);
     manager.cleanup();
+}
+
+TEST(EC, MoveComponentWithUniquePtr)
+{
+    {
+        EC::Manager<EC::Meta::TypeList<C0Ptr>, EC::Meta::TypeList<> > manager;
+
+        std::size_t e = manager.addEntity();
+
+        {
+            C0Ptr ptr = std::make_unique<C0>(5, 10);
+            manager.addComponent<C0Ptr>(e, std::move(ptr));
+        }
+
+        int x = 0;
+        int y = 0;
+        manager.forMatchingSignature<EC::Meta::TypeList<C0Ptr> >([&x, &y] (std::size_t eID, C0Ptr& ptr) {
+            x = ptr->x;
+            y = ptr->y;
+        });
+        EXPECT_EQ(5, x);
+        EXPECT_EQ(10, y);
+    }
+    {
+        EC::Manager<EC::Meta::TypeList<TestPtr>, EC::Meta::TypeList<> > manager;
+
+        std::size_t e = manager.addEntity();
+
+        {
+            TestPtr ptrBase = std::make_unique<Base>();
+            manager.addComponent<TestPtr>(e, std::move(ptrBase));
+        }
+
+        int result = 0;
+
+        auto getResultFunction = [&result] (std::size_t eID, TestPtr& ptr) {
+            result = ptr->getInt();
+        };
+
+        manager.forMatchingSignature<EC::Meta::TypeList<TestPtr> >(getResultFunction);
+
+        EXPECT_EQ(0, result);
+
+        {
+            TestPtr ptrDerived = std::make_unique<Derived>();
+            manager.addComponent<TestPtr>(e, std::move(ptrDerived));
+        }
+
+        manager.forMatchingSignature<EC::Meta::TypeList<TestPtr> >(getResultFunction);
+
+        EXPECT_EQ(1, result);
+    }
 }
 

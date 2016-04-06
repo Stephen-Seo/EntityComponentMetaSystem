@@ -17,7 +17,7 @@ namespace EC
         template <typename Function, typename TTuple, std::size_t... Indices>
         constexpr void forEachHelper(Function&& function, TTuple tuple, std::index_sequence<Indices...>)
         {
-            return (void)std::initializer_list<int>{(function(std::get<Indices>(tuple)), 0)...};
+            return (void)std::initializer_list<int>{(function(std::move(std::get<Indices>(tuple))), 0)...};
         }
 
         template <typename TTypeList, typename Function>
