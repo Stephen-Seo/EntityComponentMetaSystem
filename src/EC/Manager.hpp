@@ -352,6 +352,9 @@ namespace EC
     Additional parameters given to this function will construct the Component with those
     parameters.
 
+    Note that if the Entity already has the same component, then it will be overwritten
+    by the newly created Component with the given arguments.
+
     Example:
     \code{.cpp}
         struct C0
