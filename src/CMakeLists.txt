@@ -61,6 +61,7 @@ if(GTEST_FOUND)
 
     add_executable(UnitTests ${UnitTests_SOURCES})
     target_link_libraries(UnitTests EntityComponentSystem ${GTEST_LIBRARIES})
+    target_include_directories(UnitTests PUBLIC ${GTEST_INCLUDE_DIR})
 
     enable_testing()
     add_test(NAME UnitTests COMMAND UnitTests)
