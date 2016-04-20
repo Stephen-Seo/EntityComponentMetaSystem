@@ -11,6 +11,7 @@
 #include "Meta/Combine.hpp"
 #include "Meta/IndexOf.hpp"
 #include "Meta/ForEach.hpp"
+#include "Meta/Contains.hpp"
 
 namespace EC
 {

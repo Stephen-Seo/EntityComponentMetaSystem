@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "Meta/Combine.hpp"
+#include "Meta/Matching.hpp"
 #include "Bitset.hpp"
 
 namespace EC
