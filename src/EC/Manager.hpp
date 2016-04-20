@@ -10,6 +10,7 @@
 #define EC_GROW_SIZE_AMOUNT 256
 
 #include <cstddef>
+#include <vector>
 #include <tuple>
 #include <utility>
 
