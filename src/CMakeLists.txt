@@ -17,10 +17,10 @@ set(EntityComponentSystem_HEADERS
     EC/EC.hpp)
 
 add_library(EntityComponentSystem INTERFACE)
-target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_SOURCE_DIR})
+target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 
-include_directories(${CMAKE_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra")
@@ -49,7 +49,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/EC DESTINATION include)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/EC DESTINATION include)
 
 
 find_package(GTest)
