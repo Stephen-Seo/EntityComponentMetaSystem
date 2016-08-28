@@ -80,6 +80,9 @@ namespace EC
 
             std::get<bool>(entities[currentSize]) = true;
 
+            // TODO This shouldn't be necessary, but there is a bug
+            std::get<BitsetType>(entities[currentSize]).reset();
+
             return currentSize++;
         }
 
