@@ -207,3 +207,38 @@ TEST(EC, MoveComponentWithUniquePtr)
     }
 }
 
+TEST(EC, DeletedEntities)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    for(unsigned int i = 0; i < 4; ++i)
+    {
+        auto eid = manager.addEntity();
+        manager.addComponent<C0>(eid);
+        if(i >= 2)
+        {
+            manager.deleteEntity(eid);
+        }
+    }
+
+    manager.cleanup();
+
+    for(unsigned int i = 0; i < 4; ++i)
+    {
+        if(i < 2)
+        {
+            EXPECT_TRUE(manager.hasComponent<C0>(i));
+        }
+        else
+        {
+            EXPECT_FALSE(manager.hasComponent<C0>(i));
+        }
+    }
+
+    for(unsigned int i = 0; i < 2; ++i)
+    {
+        auto eid = manager.addEntity();
+        EXPECT_FALSE(manager.hasComponent<C0>(eid));
+    }
+}
+
