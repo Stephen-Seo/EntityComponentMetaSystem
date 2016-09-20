@@ -247,10 +247,16 @@ TEST(EC, FunctionStorage)
     EC::Manager<ListComponentsAll, ListTagsAll> manager;
     auto eid = manager.addEntity();
     manager.addComponent<C0>(eid);
+    manager.addComponent<C1>(eid);
 
-    manager.addForMatchingFunction<EC::Meta::TypeList<C0> >( [] (std::size_t eid, C0& c0) {
+    manager.addForMatchingFunction<EC::Meta::TypeList<C0>>( [] (std::size_t eid, C0& c0) {
         c0.x = 1;
         c0.y = 2;
+    });
+
+    manager.addForMatchingFunction<EC::Meta::TypeList<C0, C1>>( [] (std::size_t eid, C0& c0, C1& c1) {
+        c1.vx = c0.x + 10;
+        c1.vy = c1.vx + c0.y + 10;
     });
 
     manager.callForMatchingFunctions();
@@ -260,6 +266,11 @@ TEST(EC, FunctionStorage)
 
         EXPECT_EQ(c0.x, 1);
         EXPECT_EQ(c0.y, 2);
+
+        auto c1 = manager.getEntityData<C1>(eid);
+
+        EXPECT_EQ(c1.vx, 11);
+        EXPECT_EQ(c1.vy, 23);
     }
 
     manager.clearForMatchingFunctions();
@@ -271,6 +282,11 @@ TEST(EC, FunctionStorage)
 
         EXPECT_EQ(c0.x, 1);
         EXPECT_EQ(c0.y, 2);
+
+        auto c1 = manager.getEntityData<C1>(eid);
+
+        EXPECT_EQ(c1.vx, 11);
+        EXPECT_EQ(c1.vy, 23);
     }
 }
 
