@@ -13,6 +13,7 @@
 #include <vector>
 #include <tuple>
 #include <utility>
+#include <functional>
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
@@ -226,6 +227,12 @@ namespace EC
                     ctype.template getEntityData<Types>(entityID)...
                 );
             }
+
+            template <typename CType, typename Function>
+            void callInstance(std::size_t entityID, CType& ctype, Function&& function) const
+            {
+                ForMatchingSignatureHelper<Types...>::call(entityID, ctype, std::forward<Function>(function));
+            }
         };
 
     public:
@@ -248,6 +255,47 @@ namespace EC
                     Helper::call(i, *this, std::forward<Function>(function));
                 }
             }
+        }
+
+    private:
+        std::vector<std::function<void()> > forMatchingFunctions;
+
+    public:
+        template <typename Signature, typename Function>
+        void addForMatchingFunction(Function&& function)
+        {
+            using SignatureComponents = typename EC::Meta::Matching<Signature, ComponentsList>::type;
+            using Helper = EC::Meta::Morph<SignatureComponents, ForMatchingSignatureHelper<> >;
+
+            Helper helper;
+            BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
+
+            forMatchingFunctions.emplace_back( [function, signatureBitset, helper, this] () {
+                for(std::size_t i = 0; i < this->currentSize; ++i)
+                {
+                    if(!std::get<bool>(this->entities[i]))
+                    {
+                        continue;
+                    }
+                    if((signatureBitset & std::get<BitsetType>(this->entities[i])) == signatureBitset)
+                    {
+                        helper.callInstance(i, *this, function);
+                    }
+                }
+            });
+        }
+
+        void callForMatchingFunctions()
+        {
+            for(auto functionIter = forMatchingFunctions.begin(); functionIter != forMatchingFunctions.end(); ++functionIter)
+            {
+                (*functionIter)();
+            }
+        }
+
+        void clearForMatchingFunctions()
+        {
+            forMatchingFunctions.clear();
         }
 
     };

@@ -242,3 +242,35 @@ TEST(EC, DeletedEntities)
     }
 }
 
+TEST(EC, FunctionStorage)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+    auto eid = manager.addEntity();
+    manager.addComponent<C0>(eid);
+
+    manager.addForMatchingFunction<EC::Meta::TypeList<C0> >( [] (std::size_t eid, C0& c0) {
+        c0.x = 1;
+        c0.y = 2;
+    });
+
+    manager.callForMatchingFunctions();
+
+    {
+        auto c0 = manager.getEntityData<C0>(eid);
+
+        EXPECT_EQ(c0.x, 1);
+        EXPECT_EQ(c0.y, 2);
+    }
+
+    manager.clearForMatchingFunctions();
+
+    manager.callForMatchingFunctions();
+
+    {
+        auto c0 = manager.getEntityData<C0>(eid);
+
+        EXPECT_EQ(c0.x, 1);
+        EXPECT_EQ(c0.y, 2);
+    }
+}
+
