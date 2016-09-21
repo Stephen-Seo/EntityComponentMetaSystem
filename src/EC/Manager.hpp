@@ -14,6 +14,9 @@
 #include <tuple>
 #include <utility>
 #include <functional>
+#include <map>
+#include <set>
+#include <unordered_set>
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
@@ -427,7 +430,8 @@ namespace EC
         }
 
     private:
-        std::vector<std::function<void()> > forMatchingFunctions;
+        std::map<unsigned long long, std::function<void()> > forMatchingFunctions;
+        unsigned long long functionIndex = 0;
 
     public:
         /*!
@@ -440,6 +444,12 @@ namespace EC
 
             The syntax for the Function is the same as with forMatchingSignature().
 
+            Note that functions will be called in the same order they are inserted.
+
+            Old functions may be overwritten if there are more functions than
+            sizeof(unsigned long long) as they are stored in a map with
+            unsigned long long as the key (index).
+
             Example:
             \code{.cpp}
                 manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (std::size_t ID, C0& component0, C1& component1) {
@@ -450,9 +460,13 @@ namespace EC
 
                 manager.clearForMatchingFunctions(); // remove all stored functions
             \endcode
+
+            \return The index of the function, used for deletion with
+                deleteForMatchingFunction() or filtering with
+                clearSomeMatchingFunctions().
         */
         template <typename Signature, typename Function>
-        void addForMatchingFunction(Function&& function)
+        unsigned long long addForMatchingFunction(Function&& function)
         {
             using SignatureComponents = typename EC::Meta::Matching<Signature, ComponentsList>::type;
             using Helper = EC::Meta::Morph<SignatureComponents, ForMatchingSignatureHelper<> >;
@@ -460,7 +474,7 @@ namespace EC
             Helper helper;
             BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
 
-            forMatchingFunctions.emplace_back( [function, signatureBitset, helper, this] () {
+            forMatchingFunctions.emplace(std::make_pair(functionIndex, [function, signatureBitset, helper, this] () {
                 for(std::size_t i = 0; i < this->currentSize; ++i)
                 {
                     if(!std::get<bool>(this->entities[i]))
@@ -472,7 +486,9 @@ namespace EC
                         helper.callInstance(i, *this, function);
                     }
                 }
-            });
+            }));
+
+            return functionIndex++;
         }
 
         /*!
@@ -493,12 +509,14 @@ namespace EC
         {
             for(auto functionIter = forMatchingFunctions.begin(); functionIter != forMatchingFunctions.end(); ++functionIter)
             {
-                (*functionIter)();
+                functionIter->second();
             }
         }
 
         /*!
             \brief Remove all stored functions.
+
+            Also resets the index counter of stored functions to 0.
 
             Example:
             \code{.cpp}
@@ -514,8 +532,128 @@ namespace EC
         void clearForMatchingFunctions()
         {
             forMatchingFunctions.clear();
+            functionIndex = 0;
         }
 
+        /*!
+            \brief Removes all functions that do not have the index specified
+                in argument "list".
+
+            Note this function is slower than the variant that uses a set
+            argument as all items in the List are traversed during
+            traversal through all entities to check if they are in the list.
+            Thus the complexity of this function is n^2.
+        */
+        template <typename List>
+        void clearSomeMatchingFunctions(List list)
+        {
+            bool willErase = true;
+            for(auto functionIter = forMatchingFunctions.begin();
+                functionIter != forMatchingFunctions.end();
+                ++functionIter)
+            {
+                willErase = true;
+                for(auto listIter = list.begin();
+                    listIter != list.end();
+                    ++listIter)
+                {
+                    if(functionIter->first == *listIter)
+                    {
+                        willErase = false;
+                        break;
+                    }
+                }
+                if(willErase)
+                {
+                    functionIter = --(forMatchingFunctions.erase(functionIter));
+                }
+            }
+        }
+
+        /*!
+            \brief Removes all functions that do not have the index specified
+                in argument "list".
+
+            Note this function is slower than the variant that uses a set
+            argument as all items in the List are traversed during
+            traversal through all entities to check if they are in the list.
+            Thus the complexity of this function is n^2.
+        */
+        void clearSomeMatchingFunctions(std::initializer_list<unsigned long long> list)
+        {
+            clearSomeMatchingFunctions<decltype(list)>(list);
+        }
+
+    private:
+        template <typename Set>
+        void clearSomeMatchingFunctionsWithSet(Set set)
+        {
+            for(auto functionIter = forMatchingFunctions.begin();
+                functionIter != forMatchingFunctions.end();
+                ++functionIter)
+            {
+                if(set.find(functionIter->first) == set.end())
+                {
+                    functionIter = --(forMatchingFunctions.erase(functionIter));
+                }
+            }
+        }
+
+    public:
+        /*!
+            \brief Removes all functions that do not have the index specified
+                in argument "set".
+
+            Note this function is faster than the variant that uses a list
+            argument as the set's implementation as a tree allows for
+            log(n) time checking of an index to the set. Thus the complexity
+            of this function is n*log(n).
+        */
+        void clearSomeMatchingFunctions(std::set<unsigned long long> set)
+        {
+            clearSomeMatchingFunctionsWithSet<decltype(set)>(set);
+        }
+
+        /*!
+            \brief Removes all functions that do not have the index specified
+                in argument "set".
+
+            Note this function is faster than the variant that uses a list
+            argument as the unordered_set's implementation as a hash table
+            allows for constant time checking of an index to the set. Thus the
+            complexity of this function is n.
+        */
+        void clearSomeMatchingFunctions(std::unordered_set<unsigned long long> set)
+        {
+            clearSomeMatchingFunctionsWithSet<decltype(set)>(set);
+        }
+
+        /*!
+            \brief Deletes the specified function.
+
+            The index of a function is returned from addForMatchingFunction()
+                so there is no other way to get the index of a function.
+        */
+        void deleteForMatchingFunction(unsigned long long index)
+        {
+            forMatchingFunctions.erase(index);
+        }
+
+        /*!
+            \brief Resets the Manager, removing all entities.
+
+            Some data may persist but will be overwritten when new entities
+            are added. Thus, do not depend on data to persist after a call to
+            reset().
+        */
+        void reset()
+        {
+            clearForMatchingFunctions();
+
+            currentSize = 0;
+            currentCapacity = 0;
+            resize(EC_INIT_ENTITIES_SIZE);
+        }
     };
 }
 

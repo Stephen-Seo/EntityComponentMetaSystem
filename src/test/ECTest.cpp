@@ -246,17 +246,29 @@ TEST(EC, FunctionStorage)
 {
     EC::Manager<ListComponentsAll, ListTagsAll> manager;
     auto eid = manager.addEntity();
-    manager.addComponent<C0>(eid);
+    manager.addComponent<C0>(eid, 0, 1);
     manager.addComponent<C1>(eid);
+    manager.addComponent<C2>(eid);
+    manager.addComponent<C3>(eid);
 
-    manager.addForMatchingFunction<EC::Meta::TypeList<C0>>( [] (std::size_t eid, C0& c0) {
-        c0.x = 1;
-        c0.y = 2;
+    auto f0index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>( [] (std::size_t eid, C0& c0) {
+        ++c0.x;
+        ++c0.y;
     });
 
-    manager.addForMatchingFunction<EC::Meta::TypeList<C0, C1>>( [] (std::size_t eid, C0& c0, C1& c1) {
+    auto f1index = manager.addForMatchingFunction<EC::Meta::TypeList<C0, C1>>( [] (std::size_t eid, C0& c0, C1& c1) {
         c1.vx = c0.x + 10;
-        c1.vy = c1.vx + c0.y + 10;
+        c1.vy = c1.vy + c1.vx + c0.y + 10;
+    });
+
+    manager.addForMatchingFunction<EC::Meta::TypeList<>>(
+        [] (std::size_t eid) {
+            //derp 0
+    });
+
+    manager.addForMatchingFunction<EC::Meta::TypeList<>>(
+        [] (std::size_t eid) {
+            //derp 1
     });
 
     manager.callForMatchingFunctions();
@@ -264,29 +276,57 @@ TEST(EC, FunctionStorage)
     {
         auto c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(c0.x, 1);
-        EXPECT_EQ(c0.y, 2);
+        EXPECT_EQ(1, c0.x);
+        EXPECT_EQ(2, c0.y);
 
         auto c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(c1.vx, 11);
-        EXPECT_EQ(c1.vy, 23);
+        EXPECT_EQ(11, c1.vx);
+        EXPECT_EQ(23, c1.vy);
+    }
+
+    manager.clearSomeMatchingFunctions({f1index});
+
+    {
+        std::vector<unsigned long long> indices{f1index};
+        manager.clearSomeMatchingFunctions(indices);
+    }
+    {
+        std::set<unsigned long long> indices{f1index};
+        manager.clearSomeMatchingFunctions(indices);
+    }
+    {
+        std::unordered_set<unsigned long long> indices{f1index};
+        manager.clearSomeMatchingFunctions(indices);
+    }
+
+    manager.callForMatchingFunctions();
+
+    {
+        auto c0 = manager.getEntityData<C0>(eid);
+
+        EXPECT_EQ(1, c0.x);
+        EXPECT_EQ(2, c0.y);
+
+        auto c1 = manager.getEntityData<C1>(eid);
+
+        EXPECT_EQ(11, c1.vx);
+        EXPECT_EQ(46, c1.vy);
     }
 
     manager.clearForMatchingFunctions();
-
     manager.callForMatchingFunctions();
 
     {
         auto c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(c0.x, 1);
-        EXPECT_EQ(c0.y, 2);
+        EXPECT_EQ(1, c0.x);
+        EXPECT_EQ(2, c0.y);
 
         auto c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(c1.vx, 11);
-        EXPECT_EQ(c1.vy, 23);
+        EXPECT_EQ(11, c1.vx);
+        EXPECT_EQ(46, c1.vy);
     }
 }
 
