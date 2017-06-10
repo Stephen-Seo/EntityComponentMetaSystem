@@ -11,6 +11,6 @@ Generate makefile with CMake.
 Build the project.  
 `make`
 
-Optionally install the project to where CMAKE\_INSTALL\_PREFIX was set.
+Optionally install the project to where CMAKE\_INSTALL\_PREFIX was set.  
 `make install`
 
