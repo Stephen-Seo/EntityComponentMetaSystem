@@ -5,7 +5,7 @@ Create a build directory.
 `mkdir build`
 
 Generate makefile with CMake.  
-`cd build`
+`cd build`  
 `cmake -DCMAKE_INSTALL_PREFIX=./install -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=True ../src`
 
 Build the project.  
