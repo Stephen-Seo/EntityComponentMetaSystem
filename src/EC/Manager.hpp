@@ -439,8 +439,9 @@ namespace EC
 
             As an alternative to calling functions directly with
             forMatchingSignature(), functions can be stored in the manager to
-            be called later with callForMatchingFunctions() and removed with
-            clearForMatchingFunctions().
+            be called later with callForMatchingFunctions() and
+            callForMatchingFunction, and removed with clearForMatchingFunctions()
+            and removeForMatchingFunction().
 
             The syntax for the Function is the same as with forMatchingSignature().
 
@@ -514,6 +515,32 @@ namespace EC
         }
 
         /*!
+            \brief Call a specific stored function.
+
+            Example:
+            \code{.cpp}
+                unsigned long long id = manager.addForMatchingFunction<TypeList<C0, C1, T0>>(
+                        [] (std::size_t ID, C0& c0, C1& c1) {
+                    // Lambda function contents here
+                });
+
+                manager.callForMatchingFunction(id); // call the previously added function
+            \endcode
+
+            \return False if a function with the given id does not exist.
+        */
+        bool callForMatchingFunction(unsigned long long id)
+        {
+            auto iter = forMatchingFunctions.find(id);
+            if(iter == forMatchingFunctions.end())
+            {
+                return false;
+            }
+            iter->second();
+            return true;
+        }
+
+        /*!
             \brief Remove all stored functions.
 
             Also resets the index counter of stored functions to 0.
@@ -547,7 +574,7 @@ namespace EC
         template <typename List>
         void clearSomeMatchingFunctions(List list)
         {
-            bool willErase = true;
+            bool willErase;
             for(auto functionIter = forMatchingFunctions.begin();
                 functionIter != forMatchingFunctions.end();
                 ++functionIter)
@@ -582,6 +609,16 @@ namespace EC
         void clearSomeMatchingFunctions(std::initializer_list<unsigned long long> list)
         {
             clearSomeMatchingFunctions<decltype(list)>(list);
+        }
+
+        /*!
+            \brief Removes a function that has the given id.
+
+            \return True if a function was erased.
+        */
+        bool removeForMatchingFunction(unsigned long long id)
+        {
+            return forMatchingFunctions.erase(id) == 1;
         }
 
     private:

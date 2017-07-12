@@ -266,7 +266,7 @@ TEST(EC, FunctionStorage)
             //derp 0
     });
 
-    manager.addForMatchingFunction<EC::Meta::TypeList<>>(
+    auto lastIndex = manager.addForMatchingFunction<EC::Meta::TypeList<>>(
         [] (std::size_t eid) {
             //derp 1
     });
@@ -278,6 +278,24 @@ TEST(EC, FunctionStorage)
 
         EXPECT_EQ(1, c0.x);
         EXPECT_EQ(2, c0.y);
+
+        auto c1 = manager.getEntityData<C1>(eid);
+
+        EXPECT_EQ(11, c1.vx);
+        EXPECT_EQ(23, c1.vy);
+    }
+
+    EXPECT_TRUE(manager.callForMatchingFunction(f0index));
+    EXPECT_FALSE(manager.callForMatchingFunction(lastIndex + 1));
+
+    {
+        auto& c0 = manager.getEntityData<C0>(eid);
+
+        EXPECT_EQ(2, c0.x);
+        EXPECT_EQ(3, c0.y);
+
+        c0.x = 1;
+        c0.y = 2;
 
         auto c1 = manager.getEntityData<C1>(eid);
 
@@ -299,6 +317,23 @@ TEST(EC, FunctionStorage)
         std::unordered_set<unsigned long long> indices{f1index};
         manager.clearSomeMatchingFunctions(indices);
     }
+
+    manager.callForMatchingFunctions();
+
+    {
+        auto c0 = manager.getEntityData<C0>(eid);
+
+        EXPECT_EQ(1, c0.x);
+        EXPECT_EQ(2, c0.y);
+
+        auto c1 = manager.getEntityData<C1>(eid);
+
+        EXPECT_EQ(11, c1.vx);
+        EXPECT_EQ(46, c1.vy);
+    }
+
+    EXPECT_TRUE(manager.removeForMatchingFunction(f1index));
+    EXPECT_FALSE(manager.removeForMatchingFunction(f1index));
 
     manager.callForMatchingFunctions();
 
