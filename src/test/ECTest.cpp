@@ -261,15 +261,41 @@ TEST(EC, FunctionStorage)
         c1.vy = c1.vy + c1.vx + c0.y + 10;
     });
 
-    manager.addForMatchingFunction<EC::Meta::TypeList<>>(
-        [] (std::size_t eid) {
-            //derp 0
+    auto f2index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
+            [] (std::size_t eid, C0& c0) {
+        c0.x = c0.y = 9999;
     });
 
-    auto lastIndex = manager.addForMatchingFunction<EC::Meta::TypeList<>>(
-        [] (std::size_t eid) {
-            //derp 1
+    auto f3index = manager.addForMatchingFunction<EC::Meta::TypeList<C1>>(
+            [] (std::size_t eid, C1& c1) {
+        c1.vx = c1.vy = 10000;
     });
+
+    EXPECT_EQ(2, manager.removeSomeMatchingFunctions({f2index, f3index}));
+
+    auto f4index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
+            [] (std::size_t eid, C0& c0) {
+        c0.x = 999;
+        c0.y = 888;
+    });
+
+    {
+        auto set = std::set<std::size_t>({f4index});
+        EXPECT_EQ(1, manager.removeSomeMatchingFunctions(set));
+    }
+
+    auto f5index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
+            [] (std::size_t eid, C0& c0) {
+        c0.x = 777;
+        c0.y = 666;
+    });
+
+    auto lastIndex = f5index;
+
+    {
+        auto set = std::unordered_set<std::size_t>({f5index});
+        EXPECT_EQ(1, manager.removeSomeMatchingFunctions(set));
+    }
 
     manager.callForMatchingFunctions();
 
@@ -303,19 +329,19 @@ TEST(EC, FunctionStorage)
         EXPECT_EQ(23, c1.vy);
     }
 
-    manager.clearSomeMatchingFunctions({f1index});
+    EXPECT_EQ(1, manager.keepSomeMatchingFunctions({f1index}));
 
     {
-        std::vector<unsigned long long> indices{f1index};
-        manager.clearSomeMatchingFunctions(indices);
+        std::vector<std::size_t> indices{f1index};
+        EXPECT_EQ(0, manager.keepSomeMatchingFunctions(indices));
     }
     {
-        std::set<unsigned long long> indices{f1index};
-        manager.clearSomeMatchingFunctions(indices);
+        std::set<std::size_t> indices{f1index};
+        EXPECT_EQ(0, manager.keepSomeMatchingFunctions(indices));
     }
     {
-        std::unordered_set<unsigned long long> indices{f1index};
-        manager.clearSomeMatchingFunctions(indices);
+        std::unordered_set<std::size_t> indices{f1index};
+        EXPECT_EQ(0, manager.keepSomeMatchingFunctions(indices));
     }
 
     manager.callForMatchingFunctions();

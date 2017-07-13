@@ -15,8 +15,10 @@
 #include <utility>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <unordered_set>
+#include <algorithm>
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
@@ -49,7 +51,8 @@ namespace EC
         {
             using type = std::tuple<std::vector<Types>... >;
         };
-        using ComponentsStorage = typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
+        using ComponentsStorage =
+            typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
         // Entity: isAlive, dataIndex, ComponentsTags Info
         using EntitiesTupleType = std::tuple<bool, std::size_t, BitsetType>;
         using EntitiesType = std::vector<EntitiesTupleType>;
@@ -80,7 +83,8 @@ namespace EC
             }
 
             EC::Meta::forEach<ComponentsList>([this, newCapacity] (auto t) {
-                std::get<std::vector<decltype(t)> >(this->componentsStorage).resize(newCapacity);
+                std::get<std::vector<decltype(t)> >(
+                    this->componentsStorage).resize(newCapacity);
             });
 
             entities.resize(newCapacity);
@@ -98,7 +102,8 @@ namespace EC
 
             WARNING: The ID of an entity may change after calls to cleanup().
             Usage of entity IDs should be safe during initialization.
-            Otherwise, only use the ID given during usage of forMatchingSignature().
+            Otherwise, only use the ID given during usage of
+            forMatchingSignature().
         */
         std::size_t addEntity()
         {
@@ -116,8 +121,8 @@ namespace EC
             \brief Marks an entity for deletion.
 
             A deleted Entity is not actually deleted until cleanup() is called.
-            While an Entity is "deleted" but still in the system, calls to forMatchingSignature()
-            will ignore the Entity.
+            While an Entity is "deleted" but still in the system, calls to
+            forMatchingSignature() will ignore the Entity.
         */
         void deleteEntity(const std::size_t& index)
         {
@@ -128,8 +133,8 @@ namespace EC
         /*!
             \brief Checks if the Entity with the given ID is in the system.
 
-            Note that deleted Entities that haven't yet been cleaned up (via cleanup()) are
-            considered still in the system.
+            Note that deleted Entities that haven't yet been cleaned up
+            (via cleanup()) are considered still in the system.
         */
         bool hasEntity(const std::size_t& index) const
         {
@@ -140,8 +145,8 @@ namespace EC
         /*!
             \brief Checks if the Entity is not marked as deleted.
 
-            Note that invalid Entities (Entities where calls to hasEntity() returns false)
-            will return false.
+            Note that invalid Entities (Entities where calls to hasEntity()
+            returns false) will return false.
         */
         bool isAlive(const std::size_t& index) const
         {
@@ -151,7 +156,9 @@ namespace EC
         /*!
             \brief Returns a const reference to an Entity's info.
 
-            An Entity's info is a std::tuple with a bool, std::size_t, and a bitset.
+            An Entity's info is a std::tuple with a bool, std::size_t, and a
+            bitset.
+
             \n The bool determines if the Entity is alive.
             \n The std::size_t is the ID to this Entity's data in the system.
             \n The bitset shows what Components and Tags belong to the Entity.
@@ -162,12 +169,14 @@ namespace EC
         }
 
         /*!
-            \brief Returns a reference to a component belonging to the given Entity.
+            \brief Returns a reference to a component belonging to the given
+                Entity.
 
-            This function will return a reference to a Component regardless of whether or
-            not the Entity actually owns the reference. If the Entity doesn't own the Component,
-            changes to the Component will not affect any Entity. It is recommended to use
-            hasComponent() to determine if the Entity actually owns that Component.
+            This function will return a reference to a Component regardless of
+            whether or not the Entity actually owns the reference. If the Entity
+            doesn't own the Component, changes to the Component will not affect
+            any Entity. It is recommended to use hasComponent() to determine if
+            the Entity actually owns that Component.
         */
         template <typename Component>
         Component& getEntityData(const std::size_t& index)
@@ -176,14 +185,16 @@ namespace EC
         }
 
         /*!
-            \brief Returns a reference to a component belonging to the given Entity.
+            \brief Returns a reference to a component belonging to the given
+                Entity.
 
             Note that this function is the same as getEntityData().
 
-            This function will return a reference to a Component regardless of whether or
-            not the Entity actually owns the reference. If the Entity doesn't own the Component,
-            changes to the Component will not affect any Entity. It is recommended to use
-            hasComponent() to determine if the Entity actually owns that Component.
+            This function will return a reference to a Component regardless of
+            whether or not the Entity actually owns the reference. If the Entity
+            doesn't own the Component, changes to the Component will not affect
+            any Entity. It is recommended to use hasComponent() to determine if
+            the Entity actually owns that Component.
         */
         template <typename Component>
         Component& getEntityComponent(const std::size_t& index)
@@ -192,7 +203,8 @@ namespace EC
         }
 
         /*!
-            \brief Checks whether or not the given Entity has the given Component.
+            \brief Checks whether or not the given Entity has the given
+                Component.
 
             Example:
             \code{.cpp}
@@ -202,7 +214,8 @@ namespace EC
         template <typename Component>
         bool hasComponent(const std::size_t& index) const
         {
-            return std::get<BitsetType>(entities.at(index)).template getComponentBit<Component>();
+            return std::get<BitsetType>(
+                entities.at(index)).template getComponentBit<Component>();
         }
 
         /*!
@@ -216,14 +229,17 @@ namespace EC
         template <typename Tag>
         bool hasTag(const std::size_t& index) const
         {
-            return std::get<BitsetType>(entities.at(index)).template getTagBit<Tag>();
+            return std::get<BitsetType>(
+                entities.at(index)).template getTagBit<Tag>();
         }
 
         /*!
             \brief Does garbage collection on Entities.
 
-            Does housekeeping on the vector containing Entities that will result in
-            entity IDs changing if some Entities were marked for deletion.
+            Does housekeeping on the vector containing Entities that will
+            result in entity IDs changing if some Entities were marked for
+            deletion.
+
             <b>This function should be called periodically to correctly handle deletion of entities.</b>
         */
         void cleanup()
@@ -275,11 +291,12 @@ namespace EC
         /*!
             \brief Adds a component to the given Entity.
 
-            Additional parameters given to this function will construct the Component with those
-            parameters.
+            Additional parameters given to this function will construct the
+            Component with those parameters.
 
-            Note that if the Entity already has the same component, then it will be overwritten
-            by the newly created Component with the given arguments.
+            Note that if the Entity already has the same component, then it
+            will be overwritten by the newly created Component with the given
+            arguments.
 
             Example:
             \code{.cpp}
@@ -307,14 +324,20 @@ namespace EC
 
             Component component(std::forward<Args>(args)...);
 
-            std::get<BitsetType>(entities[entityID]).template getComponentBit<Component>() = true;
-            std::get<std::vector<Component> >(componentsStorage)[std::get<std::size_t>(entities[entityID])] = std::move(component);
+            std::get<BitsetType>(
+                entities[entityID]
+            ).template getComponentBit<Component>() = true;
+
+            std::get<std::vector<Component> >(
+                componentsStorage
+            )[std::get<std::size_t>(entities[entityID])] = std::move(component);
         }
 
         /*!
             \brief Removes the given Component from the given Entity.
 
-            If the Entity does not have the Component given, nothing will change.
+            If the Entity does not have the Component given, nothing will
+            change.
 
             Example:
             \code{.cpp}
@@ -329,7 +352,9 @@ namespace EC
                 return;
             }
 
-            std::get<BitsetType>(entities[entityID]).template getComponentBit<Component>() = false;
+            std::get<BitsetType>(
+                entities[entityID]
+            ).template getComponentBit<Component>() = false;
         }
 
         /*!
@@ -348,7 +373,9 @@ namespace EC
                 return;
             }
 
-            std::get<BitsetType>(entities[entityID]).template getTagBit<Tag>() = true;
+            std::get<BitsetType>(
+                entities[entityID]
+            ).template getTagBit<Tag>() = true;
         }
 
     /*!
@@ -369,7 +396,9 @@ namespace EC
                 return;
             }
 
-            std::get<BitsetType>(entities[entityID]).template getTagBit<Tag>() = false;
+            std::get<BitsetType>(
+                entities[entityID]
+            ).template getTagBit<Tag>() = false;
         }
 
     private:
@@ -377,7 +406,10 @@ namespace EC
         struct ForMatchingSignatureHelper
         {
             template <typename CType, typename Function>
-            static void call(const std::size_t& entityID, CType& ctype, Function&& function)
+            static void call(
+                const std::size_t& entityID,
+                CType& ctype,
+                Function&& function)
             {
                 function(
                     entityID,
@@ -386,35 +418,50 @@ namespace EC
             }
 
             template <typename CType, typename Function>
-            void callInstance(const std::size_t& entityID, CType& ctype, Function&& function) const
+            void callInstance(
+                const std::size_t& entityID,
+                CType& ctype,
+                Function&& function) const
             {
-                ForMatchingSignatureHelper<Types...>::call(entityID, ctype, std::forward<Function>(function));
+                ForMatchingSignatureHelper<Types...>::call(
+                    entityID,
+                    ctype,
+                    std::forward<Function>(function));
             }
         };
 
     public:
         /*!
-            \brief Calls the given function on all Entities matching the given Signature.
+            \brief Calls the given function on all Entities matching the given
+                Signature.
 
-            The function object given to this function must accept std::size_t as its first
-            parameter and Component references for the rest of the parameters. Tags specified in the
-            Signature are only used as filters and will not be given as a parameter to the function.
+            The function object given to this function must accept std::size_t
+            as its first parameter and Component references for the rest of the
+            parameters. Tags specified in the Signature are only used as
+            filters and will not be given as a parameter to the function.
 
             Example:
             \code{.cpp}
-                manager.forMatchingSignature<TypeList<C0, C1, T0>>([] (std::size_t ID, C0& component0, C1& component1) {
+                manager.forMatchingSignature<TypeList<C0, C1, T0>>([] (
+                    std::size_t ID, C0& component0, C1& component1) {
                     // Lambda function contents here
                 });
             \endcode
-            Note, the ID given to the function is not permanent. An entity's ID may change when cleanup() is called.
+            Note, the ID given to the function is not permanent. An entity's ID
+            may change when cleanup() is called.
         */
         template <typename Signature, typename Function>
         void forMatchingSignature(Function&& function)
         {
-            using SignatureComponents = typename EC::Meta::Matching<Signature, ComponentsList>::type;
-            using Helper = EC::Meta::Morph<SignatureComponents, ForMatchingSignatureHelper<> >;
+            using SignatureComponents =
+                typename EC::Meta::Matching<Signature, ComponentsList>::type;
+            using Helper =
+                EC::Meta::Morph<
+                    SignatureComponents,
+                    ForMatchingSignatureHelper<> >;
 
-            BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
+            BitsetType signatureBitset =
+                BitsetType::template generateBitset<Signature>();
             for(std::size_t i = 0; i < currentSize; ++i)
             {
                 if(!std::get<bool>(entities[i]))
@@ -422,7 +469,8 @@ namespace EC
                     continue;
                 }
 
-                if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset)
+                if((signatureBitset & std::get<BitsetType>(entities[i]))
+                    == signatureBitset)
                 {
                     Helper::call(i, *this, std::forward<Function>(function));
                 }
@@ -430,8 +478,8 @@ namespace EC
         }
 
     private:
-        std::map<unsigned long long, std::function<void()> > forMatchingFunctions;
-        unsigned long long functionIndex = 0;
+        std::unordered_map<std::size_t, std::function<void()> > forMatchingFunctions;
+        std::size_t functionIndex = 0;
 
     public:
         /*!
@@ -440,49 +488,70 @@ namespace EC
             As an alternative to calling functions directly with
             forMatchingSignature(), functions can be stored in the manager to
             be called later with callForMatchingFunctions() and
-            callForMatchingFunction, and removed with clearForMatchingFunctions()
-            and removeForMatchingFunction().
+            callForMatchingFunction, and removed with
+            clearForMatchingFunctions() and removeForMatchingFunction().
 
-            The syntax for the Function is the same as with forMatchingSignature().
+            The syntax for the Function is the same as with
+            forMatchingSignature().
 
-            Note that functions will be called in the same order they are inserted.
-
-            Old functions may be overwritten if there are more functions than
-            sizeof(unsigned long long) as they are stored in a map with
-            unsigned long long as the key (index).
+            Note that functions will be called in the same order they are
+            inserted if called by callForMatchingFunctions() unless the
+            internal functionIndex counter has wrapped around (is a
+            std::size_t). Calling clearForMatchingFunctions() will reset this
+            counter to zero.
 
             Example:
             \code{.cpp}
-                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (std::size_t ID, C0& component0, C1& component1) {
+                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
+                    std::size_t ID, C0& component0, C1& component1) {
                     // Lambda function contents here
                 });
 
-                manager.callForMatchingFunctions(); // call all stored functions
+                // call all stored functions
+                manager.callForMatchingFunctions();
 
-                manager.clearForMatchingFunctions(); // remove all stored functions
+                // remove all stored functions
+                manager.clearForMatchingFunctions();
             \endcode
 
             \return The index of the function, used for deletion with
                 deleteForMatchingFunction() or filtering with
-                clearSomeMatchingFunctions().
+                keepSomeMatchingFunctions() or removeSomeMatchingFunctions(),
+                or calling with callForMatchingFunction().
         */
         template <typename Signature, typename Function>
-        unsigned long long addForMatchingFunction(Function&& function)
+        std::size_t addForMatchingFunction(Function&& function)
         {
-            using SignatureComponents = typename EC::Meta::Matching<Signature, ComponentsList>::type;
-            using Helper = EC::Meta::Morph<SignatureComponents, ForMatchingSignatureHelper<> >;
+            while(forMatchingFunctions.find(functionIndex)
+                != forMatchingFunctions.end())
+            {
+                ++functionIndex;
+            }
+
+            using SignatureComponents =
+                typename EC::Meta::Matching<Signature, ComponentsList>::type;
+            using Helper =
+                EC::Meta::Morph<
+                    SignatureComponents,
+                    ForMatchingSignatureHelper<> >;
 
             Helper helper;
-            BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
+            BitsetType signatureBitset =
+                BitsetType::template generateBitset<Signature>();
 
-            forMatchingFunctions.emplace(std::make_pair(functionIndex, [function, signatureBitset, helper, this] () {
+            forMatchingFunctions.emplace(std::make_pair(
+                functionIndex,
+                [function, signatureBitset, helper, this] ()
+            {
                 for(std::size_t i = 0; i < this->currentSize; ++i)
                 {
                     if(!std::get<bool>(this->entities[i]))
                     {
                         continue;
                     }
-                    if((signatureBitset & std::get<BitsetType>(this->entities[i])) == signatureBitset)
+                    if((signatureBitset
+                        & std::get<BitsetType>(this->entities[i]))
+                            == signatureBitset)
                     {
                         helper.callInstance(i, *this, function);
                     }
@@ -497,18 +566,23 @@ namespace EC
 
             Example:
             \code{.cpp}
-                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (std::size_t ID, C0& component0, C1& component1) {
+                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
+                    std::size_t ID, C0& component0, C1& component1) {
                     // Lambda function contents here
                 });
 
-                manager.callForMatchingFunctions(); // call all stored functions
+                // call all stored functions
+                manager.callForMatchingFunctions();
 
-                manager.clearForMatchingFunctions(); // remove all stored functions
+                // remove all stored functions
+                manager.clearForMatchingFunctions();
             \endcode
         */
         void callForMatchingFunctions()
         {
-            for(auto functionIter = forMatchingFunctions.begin(); functionIter != forMatchingFunctions.end(); ++functionIter)
+            for(auto functionIter = forMatchingFunctions.begin();
+                functionIter != forMatchingFunctions.end();
+                ++functionIter)
             {
                 functionIter->second();
             }
@@ -519,17 +593,19 @@ namespace EC
 
             Example:
             \code{.cpp}
-                unsigned long long id = manager.addForMatchingFunction<TypeList<C0, C1, T0>>(
+                std::size_t id =
+                    manager.addForMatchingFunction<TypeList<C0, C1, T0>>(
                         [] (std::size_t ID, C0& c0, C1& c1) {
                     // Lambda function contents here
                 });
 
-                manager.callForMatchingFunction(id); // call the previously added function
+                // call the previously added function
+                manager.callForMatchingFunction(id);
             \endcode
 
             \return False if a function with the given id does not exist.
         */
-        bool callForMatchingFunction(unsigned long long id)
+        bool callForMatchingFunction(std::size_t id)
         {
             auto iter = forMatchingFunctions.find(id);
             if(iter == forMatchingFunctions.end())
@@ -547,13 +623,16 @@ namespace EC
 
             Example:
             \code{.cpp}
-                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (std::size_t ID, C0& component0, C1& component1) {
+                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
+                    std::size_t ID, C0& component0, C1& component1) {
                     // Lambda function contents here
                 });
 
-                manager.callForMatchingFunctions(); // call all stored functions
+                // call all stored functions
+                manager.callForMatchingFunctions();
 
-                manager.clearForMatchingFunctions(); // remove all stored functions
+                // remove all stored functions
+                manager.clearForMatchingFunctions();
             \endcode
         */
         void clearForMatchingFunctions()
@@ -563,106 +642,89 @@ namespace EC
         }
 
         /*!
-            \brief Removes all functions that do not have the index specified
-                in argument "list".
-
-            Note this function is slower than the variant that uses a set
-            argument as all items in the List are traversed during
-            traversal through all entities to check if they are in the list.
-            Thus the complexity of this function is n^2.
-        */
-        template <typename List>
-        void clearSomeMatchingFunctions(List list)
-        {
-            bool willErase;
-            for(auto functionIter = forMatchingFunctions.begin();
-                functionIter != forMatchingFunctions.end();
-                ++functionIter)
-            {
-                willErase = true;
-                for(auto listIter = list.begin();
-                    listIter != list.end();
-                    ++listIter)
-                {
-                    if(functionIter->first == *listIter)
-                    {
-                        willErase = false;
-                        break;
-                    }
-                }
-                if(willErase)
-                {
-                    functionIter = --(forMatchingFunctions.erase(functionIter));
-                }
-            }
-        }
-
-        /*!
-            \brief Removes all functions that do not have the index specified
-                in argument "list".
-
-            Note this function is slower than the variant that uses a set
-            argument as all items in the List are traversed during
-            traversal through all entities to check if they are in the list.
-            Thus the complexity of this function is n^2.
-        */
-        void clearSomeMatchingFunctions(std::initializer_list<unsigned long long> list)
-        {
-            clearSomeMatchingFunctions<decltype(list)>(list);
-        }
-
-        /*!
             \brief Removes a function that has the given id.
 
             \return True if a function was erased.
         */
-        bool removeForMatchingFunction(unsigned long long id)
+        bool removeForMatchingFunction(std::size_t id)
         {
             return forMatchingFunctions.erase(id) == 1;
         }
 
-    private:
-        template <typename Set>
-        void clearSomeMatchingFunctionsWithSet(Set set)
+        /*!
+            \brief Removes all functions that do not have the index specified
+                in argument "list".
+
+            The given List must be iterable.
+            This is the only requirement, so a set could also be given.
+
+            \return The number of functions deleted.
+        */
+        template <typename List>
+        std::size_t keepSomeMatchingFunctions(List list)
         {
-            for(auto functionIter = forMatchingFunctions.begin();
-                functionIter != forMatchingFunctions.end();
-                ++functionIter)
+            std::size_t deletedCount = 0;
+            for(std::size_t i = 0; i < functionIndex; ++i)
             {
-                if(set.find(functionIter->first) == set.end())
+                if(forMatchingFunctions.find(i) != forMatchingFunctions.end()
+                    && std::find(list.begin(), list.end(), i) == list.end())
                 {
-                    functionIter = --(forMatchingFunctions.erase(functionIter));
+                    deletedCount += forMatchingFunctions.erase(i);
                 }
             }
-        }
 
-    public:
-        /*!
-            \brief Removes all functions that do not have the index specified
-                in argument "set".
-
-            Note this function is faster than the variant that uses a list
-            argument as the set's implementation as a tree allows for
-            log(n) time checking of an index to the set. Thus the complexity
-            of this function is n*log(n).
-        */
-        void clearSomeMatchingFunctions(std::set<unsigned long long> set)
-        {
-            clearSomeMatchingFunctionsWithSet<decltype(set)>(set);
+            return deletedCount;
         }
 
         /*!
             \brief Removes all functions that do not have the index specified
-                in argument "set".
+                in argument "list".
 
-            Note this function is faster than the variant that uses a list
-            argument as the unordered_set's implementation as a hash table
-            allows for constant time checking of an index to the set. Thus the
-            complexity of this function is n.
+            This function allows for passing an initializer list.
+
+            \return The number of functions deleted.
         */
-        void clearSomeMatchingFunctions(std::unordered_set<unsigned long long> set)
+        std::size_t keepSomeMatchingFunctions(
+            std::initializer_list<std::size_t> list)
         {
-            clearSomeMatchingFunctionsWithSet<decltype(set)>(set);
+            return keepSomeMatchingFunctions<decltype(list)>(list);
+        }
+
+        /*!
+            \brief Removes all functions that do have the index specified
+                in argument "list".
+
+            The given List must be iterable.
+            This is the only requirement, so a set could also be given.
+
+            \return The number of functions deleted.
+        */
+        template <typename List>
+        std::size_t removeSomeMatchingFunctions(List list)
+        {
+            std::size_t deletedCount = 0;
+            for(auto listIter = list.begin();
+                listIter != list.end();
+                ++listIter)
+            {
+                deletedCount += forMatchingFunctions.erase(*listIter);
+            }
+
+            return deletedCount;
+        }
+
+        /*!
+            \brief Removes all functions that do have the index specified
+                in argument "list".
+
+            This function allows for passing an initializer list.
+
+            \return The number of functions deleted.
+        */
+        std::size_t removeSomeMatchingFunctions(
+            std::initializer_list<std::size_t> list)
+        {
+            return removeSomeMatchingFunctions<decltype(list)>(list);
         }
 
         /*!
@@ -670,10 +732,12 @@ namespace EC
 
             The index of a function is returned from addForMatchingFunction()
                 so there is no other way to get the index of a function.
+
+            \return True if function existed and has been deleted.
         */
-        void deleteForMatchingFunction(unsigned long long index)
+        bool deleteForMatchingFunction(std::size_t index)
         {
-            forMatchingFunctions.erase(index);
+            return forMatchingFunctions.erase(index) == 1;
         }
 
         /*!
