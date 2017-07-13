@@ -664,12 +664,16 @@ namespace EC
         std::size_t keepSomeMatchingFunctions(List list)
         {
             std::size_t deletedCount = 0;
-            for(std::size_t i = 0; i < functionIndex; ++i)
+            for(auto iter = forMatchingFunctions.begin(); iter != forMatchingFunctions.end();)
             {
-                if(forMatchingFunctions.find(i) != forMatchingFunctions.end()
-                    && std::find(list.begin(), list.end(), i) == list.end())
+                if(std::find(list.begin(), list.end(), iter->first) == list.end())
                 {
-                    deletedCount += forMatchingFunctions.erase(i);
+                    iter = forMatchingFunctions.erase(iter);
+                    ++deletedCount;
+                }
+                else
+                {
+                    ++iter;
                 }
             }
 
