@@ -391,3 +391,41 @@ TEST(EC, FunctionStorage)
     }
 }
 
+/*
+    This test demonstrates that while entity ids may change after cleanup,
+    pointers to their components do not.
+*/
+TEST(EC, DataPointers)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    auto first = manager.addEntity();
+    auto second = manager.addEntity();
+
+    manager.addComponent<C0>(first, 5, 5);
+    manager.addComponent<C0>(second, 10, 10);
+    manager.addTag<T0>(second);
+
+    auto* cptr = &manager.getEntityData<C0>(second);
+
+    EXPECT_EQ(10, cptr->x);
+    EXPECT_EQ(10, cptr->y);
+
+    manager.deleteEntity(first);
+    manager.cleanup();
+
+    auto newSecond = second;
+    manager.forMatchingSignature<EC::Meta::TypeList<T0>>(
+            [&newSecond] (auto eid) {
+        newSecond = eid;
+    });
+
+    EXPECT_NE(newSecond, second);
+
+    auto* newcptr = &manager.getEntityData<C0>(newSecond);
+    EXPECT_EQ(newcptr, cptr);
+
+    EXPECT_EQ(10, newcptr->x);
+    EXPECT_EQ(10, newcptr->y);
+}
+
