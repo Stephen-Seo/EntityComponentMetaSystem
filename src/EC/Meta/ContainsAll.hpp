@@ -1,5 +1,6 @@
 
-// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed under the Academic Free License.
+// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed
+// under the Academic Free License.
 // His code is available here: https://github.com/SuperV1234/cppcon2015
 
 
@@ -19,7 +20,11 @@ namespace EC
         {
         };
 
-        template <template <typename...> class TTypeListA, typename Type, typename... Types, typename TTypeListB>
+        template <
+            template <typename...> class TTypeListA,
+            typename Type,
+            typename... Types,
+            typename TTypeListB>
         struct ContainsAllHelper<TTypeListA<Type, Types...>, TTypeListB> :
             std::conditional<
                 Contains<Type, TTypeListB>::value,
@@ -30,7 +35,8 @@ namespace EC
         };
 
         template <typename TTypeListA, typename TTypeListB>
-        using ContainsAll = std::integral_constant<bool, ContainsAllHelper<TTypeListA, TTypeListB>::value>;
+        using ContainsAll = std::integral_constant<
+            bool, ContainsAllHelper<TTypeListA, TTypeListB>::value>;
     }
 }
 

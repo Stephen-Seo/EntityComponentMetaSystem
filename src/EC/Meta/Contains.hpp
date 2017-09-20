@@ -1,5 +1,6 @@
 
-// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed under the Academic Free License.
+// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed
+// under the Academic Free License.
 // His code is available here: https://github.com/SuperV1234/cppcon2015
 
 
@@ -19,7 +20,11 @@ namespace EC
         {
         };
 
-        template <typename T, template <typename...> class TTypeList, typename Type, typename... Types>
+        template <
+            typename T,
+            template <typename...> class TTypeList,
+            typename Type,
+            typename... Types>
         struct ContainsHelper<T, TTypeList<Type, Types...> > :
             std::conditional<
                 std::is_same<T, Type>::value,
@@ -30,7 +35,8 @@ namespace EC
         };
 
         template <typename T, typename TTypeList>
-        using Contains = std::integral_constant<bool, ContainsHelper<T, TTypeList>::value>;
+        using Contains = std::integral_constant<
+            bool, ContainsHelper<T, TTypeList>::value>;
     }
 }
 

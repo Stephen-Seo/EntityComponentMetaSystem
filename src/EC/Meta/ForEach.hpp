@@ -1,5 +1,6 @@
 
-// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed under the Academic Free License.
+// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed
+// under the Academic Free License.
 // His code is available here: https://github.com/SuperV1234/cppcon2015
 
 
@@ -15,9 +16,11 @@ namespace EC
     namespace Meta
     {
         template <typename Function, typename TTuple, std::size_t... Indices>
-        constexpr void forEachHelper(Function&& function, TTuple tuple, std::index_sequence<Indices...>)
+        constexpr void forEachHelper(
+            Function&& function, TTuple tuple, std::index_sequence<Indices...>)
         {
-            return (void)std::initializer_list<int>{(function(std::move(std::get<Indices>(tuple))), 0)...};
+            return (void)std::initializer_list<int>{(function(std::move(
+                std::get<Indices>(tuple))), 0)...};
         }
 
         template <typename TTypeList, typename Function>
@@ -27,7 +30,8 @@ namespace EC
             using TTupleSize = std::tuple_size<TTuple>;
             using IndexSeq = std::make_index_sequence<TTupleSize::value>;
 
-            return forEachHelper(std::forward<Function>(function), TTuple{}, IndexSeq{});
+            return forEachHelper(
+                std::forward<Function>(function), TTuple{}, IndexSeq{});
         }
     }
 }

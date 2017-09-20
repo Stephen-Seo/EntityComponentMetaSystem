@@ -1,5 +1,6 @@
 
-// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed under the Academic Free License.
+// This work derives from Vittorio Romeo's code used for cppcon 2015 licensed
+// under the Academic Free License.
 // His code is available here: https://github.com/SuperV1234/cppcon2015
 
 
@@ -29,7 +30,8 @@ namespace EC
     /*!
         \brief Manages an EntityComponent system.
 
-        EC::Manager must be created with a list of all used Components and all used tags.
+        EC::Manager must be created with a list of all used Components and all
+        used tags.
 
         Note that all components must have a default constructor.
 
@@ -181,7 +183,8 @@ namespace EC
         template <typename Component>
         Component& getEntityData(const std::size_t& index)
         {
-            return std::get<std::vector<Component> >(componentsStorage).at(std::get<std::size_t>(entities.at(index)));
+            return std::get<std::vector<Component> >(componentsStorage).at(
+                std::get<std::size_t>(entities.at(index)));
         }
 
         /*!
@@ -198,6 +201,41 @@ namespace EC
         */
         template <typename Component>
         Component& getEntityComponent(const std::size_t& index)
+        {
+            return getEntityData<Component>(index);
+        }
+
+        /*!
+            \brief Returns a const reference to a component belonging to the
+                given Entity.
+
+            This function will return a const reference to a Component
+            regardless of whether or not the Entity actually owns the reference.
+            If the Entity doesn't own the Component, changes to the Component
+            will not affect any Entity. It is recommended to use hasComponent()
+            to determine if the Entity actually owns that Component.
+        */
+        template <typename Component>
+        const Component& getEntityData(const std::size_t& index) const
+        {
+            return std::get<std::vector<Component> >(componentsStorage).at(
+                std::get<std::size_t>(entities.at(index)));
+        }
+
+        /*!
+            \brief Returns a const reference to a component belonging to the
+                given Entity.
+
+            Note that this function is the same as getEntityData() (const).
+
+            This function will return a const reference to a Component
+            regardless of whether or not the Entity actually owns the reference.
+            If the Entity doesn't own the Component, changes to the Component
+            will not affect any Entity. It is recommended to use hasComponent()
+            to determine if the Entity actually owns that Component.
+        */
+        template <typename Component>
+        const Component& getEntityComponent(const std::size_t& index) const
         {
             return getEntityData<Component>(index);
         }
@@ -240,7 +278,8 @@ namespace EC
             result in entity IDs changing if some Entities were marked for
             deletion.
 
-            <b>This function should be called periodically to correctly handle deletion of entities.</b>
+            <b>This function should be called periodically to correctly handle
+            deletion of entities.</b>
         */
         void cleanup()
         {
@@ -478,7 +517,8 @@ namespace EC
         }
 
     private:
-        std::unordered_map<std::size_t, std::function<void()> > forMatchingFunctions;
+        std::unordered_map<std::size_t, std::function<void()> >
+            forMatchingFunctions;
         std::size_t functionIndex = 0;
 
     public:
@@ -664,9 +704,11 @@ namespace EC
         std::size_t keepSomeMatchingFunctions(List list)
         {
             std::size_t deletedCount = 0;
-            for(auto iter = forMatchingFunctions.begin(); iter != forMatchingFunctions.end();)
+            for(auto iter = forMatchingFunctions.begin();
+                iter != forMatchingFunctions.end();)
             {
-                if(std::find(list.begin(), list.end(), iter->first) == list.end())
+                if(std::find(list.begin(), list.end(), iter->first)
+                    == list.end())
                 {
                     iter = forMatchingFunctions.erase(iter);
                     ++deletedCount;
