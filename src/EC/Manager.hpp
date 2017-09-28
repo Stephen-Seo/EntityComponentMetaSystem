@@ -280,12 +280,22 @@ namespace EC
 
             <b>This function should be called periodically to correctly handle
             deletion of entities.</b>
+
+            The map returned by this function lists all entities that have
+            changed as a result of calling this function.
+            The size_t key refers to the original entity id of the entity,
+            the bool value refers to whether or not the entity is still alive,
+            and the size_t value refers to the new entity id if the entity
+            is still alive.
         */
-        void cleanup()
+        using CleanupReturnType =
+            std::unordered_map<std::size_t, std::pair<bool, std::size_t> >;
+        CleanupReturnType cleanup()
         {
+            CleanupReturnType changedMap;
             if(currentSize == 0)
             {
-                return;
+                return changedMap;
             }
 
             std::size_t rhs = currentSize - 1;
@@ -298,8 +308,10 @@ namespace EC
                     if(rhs == 0)
                     {
                         currentSize = 0;
-                        return;
+                        return changedMap;
                     }
+                    changedMap.insert(std::make_pair(rhs, std::make_pair(
+                        false, 0)));
                     std::get<BitsetType>(entities[rhs]).reset();
                     --rhs;
                 }
@@ -310,6 +322,13 @@ namespace EC
                 else if(!std::get<bool>(entities[lhs]))
                 {
                     // lhs is marked for deletion
+
+                    // store deleted and changed id to map
+                    changedMap.insert(std::make_pair(lhs, std::make_pair(
+                        false, 0)));
+                    changedMap.insert(std::make_pair(rhs, std::make_pair(
+                        true, lhs)));
+
                     // swap lhs entity with rhs entity
                     std::swap(entities[lhs], entities.at(rhs));
 
@@ -325,6 +344,8 @@ namespace EC
                 }
             }
             currentSize = rhs + 1;
+
+            return changedMap;
         }
 
         /*!

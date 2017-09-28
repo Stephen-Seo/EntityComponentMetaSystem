@@ -429,3 +429,32 @@ TEST(EC, DataPointers)
     EXPECT_EQ(10, newcptr->y);
 }
 
+TEST(EC, DeletedEntityID)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    auto e0 = manager.addEntity();
+    auto e1 = manager.addEntity();
+    auto e2 = manager.addEntity();
+
+    manager.deleteEntity(e0);
+
+    auto changedMap = manager.cleanup();
+
+    for(decltype(changedMap)::value_type& p : changedMap)
+    {
+        if(p.first == 0)
+        {
+            EXPECT_FALSE(p.second.first);
+        }
+        else if(p.first == 2)
+        {
+            EXPECT_TRUE(p.second.first);
+            EXPECT_EQ(0, p.second.second);
+        }
+    }
+
+    EXPECT_FALSE(manager.hasEntity(2));
+    EXPECT_TRUE(manager.hasEntity(0));
+}
+
