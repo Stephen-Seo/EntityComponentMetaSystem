@@ -474,7 +474,8 @@ TEST(EC, MultiThreaded)
         [] (const std::size_t& eid, C0& c) {
             c.x = 1;
             c.y = 2;
-        }
+        },
+        2
     );
 
     for(unsigned int i = 0; i < 17; ++i)
