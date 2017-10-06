@@ -20,6 +20,7 @@
 #include <set>
 #include <unordered_set>
 #include <algorithm>
+#include <thread>
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
@@ -500,18 +501,29 @@ namespace EC
             parameters. Tags specified in the Signature are only used as
             filters and will not be given as a parameter to the function.
 
+            The second parameter is default 1 (not multi-threaded). If the
+            second parameter threadCount is set to a value greater than 1, then
+            threadCount threads will be used.
+            Note that multi-threading is based on splitting the task of calling
+            the function across sections of entities. Thus if there are only
+            a small amount of entities in the manager, then using multiple
+            threads may not have as great of a speed-up.
+
             Example:
             \code{.cpp}
                 manager.forMatchingSignature<TypeList<C0, C1, T0>>([] (
                     std::size_t ID, C0& component0, C1& component1) {
                     // Lambda function contents here
-                });
+                },
+                4 // four threads
+                );
             \endcode
             Note, the ID given to the function is not permanent. An entity's ID
             may change when cleanup() is called.
         */
         template <typename Signature, typename Function>
-        void forMatchingSignature(Function&& function)
+        void forMatchingSignature(Function&& function,
+            std::size_t threadCount = 1)
         {
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
@@ -522,23 +534,70 @@ namespace EC
 
             BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
-            for(std::size_t i = 0; i < currentSize; ++i)
+            if(threadCount <= 1)
             {
-                if(!std::get<bool>(entities[i]))
+                for(std::size_t i = 0; i < currentSize; ++i)
                 {
-                    continue;
-                }
+                    if(!std::get<bool>(entities[i]))
+                    {
+                        continue;
+                    }
 
-                if((signatureBitset & std::get<BitsetType>(entities[i]))
-                    == signatureBitset)
+                    if((signatureBitset & std::get<BitsetType>(entities[i]))
+                        == signatureBitset)
+                    {
+                        Helper::call(i, *this,
+                            std::forward<Function>(function));
+                    }
+                }
+            }
+            else
+            {
+                std::thread threads[threadCount];
+                std::size_t s = currentSize / threadCount;
+                for(std::size_t i = 0; i < threadCount; ++i)
                 {
-                    Helper::call(i, *this, std::forward<Function>(function));
+                    std::size_t begin = s * i;
+                    std::size_t end;
+                    if(i == threadCount - 1)
+                    {
+                        end = currentSize;
+                    }
+                    else
+                    {
+                        end = s * (i + 1);
+                    }
+                    threads[i] = std::thread([this, &function, &signatureBitset]
+                            (std::size_t begin,
+                            std::size_t end) {
+                        for(std::size_t i = begin; i < end; ++i)
+                        {
+                            if(!std::get<bool>(this->entities[i]))
+                            {
+                                continue;
+                            }
+
+                            if((signatureBitset
+                                    & std::get<BitsetType>(entities[i]))
+                                == signatureBitset)
+                            {
+                                Helper::call(i, *this,
+                                    std::forward<Function>(function));
+                            }
+                        }
+                    },
+                        begin,
+                        end);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    threads[i].join();
                 }
             }
         }
 
     private:
-        std::unordered_map<std::size_t, std::function<void()> >
+        std::unordered_map<std::size_t, std::function<void(std::size_t)> >
             forMatchingFunctions;
         std::size_t functionIndex = 0;
 
@@ -602,19 +661,64 @@ namespace EC
 
             forMatchingFunctions.emplace(std::make_pair(
                 functionIndex,
-                [function, signatureBitset, helper, this] ()
+                [function, signatureBitset, helper, this] 
+                    (std::size_t threadCount)
             {
-                for(std::size_t i = 0; i < this->currentSize; ++i)
+                if(threadCount <= 1)
                 {
-                    if(!std::get<bool>(this->entities[i]))
+                    for(std::size_t i = 0; i < this->currentSize; ++i)
                     {
-                        continue;
+                        if(!std::get<bool>(this->entities[i]))
+                        {
+                            continue;
+                        }
+                        if((signatureBitset
+                            & std::get<BitsetType>(this->entities[i]))
+                                == signatureBitset)
+                        {
+                            helper.callInstance(i, *this, function);
+                        }
                     }
-                    if((signatureBitset
-                        & std::get<BitsetType>(this->entities[i]))
-                            == signatureBitset)
+                }
+                else
+                {
+                    std::thread threads[threadCount];
+                    std::size_t s = this->currentSize / threadCount;
+                    for(std::size_t i = 0; i < threadCount; ++ i)
                     {
-                        helper.callInstance(i, *this, function);
+                        std::size_t begin = s * i;
+                        std::size_t end;
+                        if(i == threadCount - 1)
+                        {
+                            end = this->currentSize;
+                        }
+                        else
+                        {
+                            end = s * (i + 1);
+                        }
+                        threads[i] = std::thread(
+                            [this, &function, &signatureBitset, &helper]
+                                (std::size_t begin,
+                                std::size_t end) {
+                            for(std::size_t i = begin; i < end; ++i)
+                            {
+                                if(!std::get<bool>(this->entities[i]))
+                                {
+                                    continue;
+                                }
+                                if((signatureBitset
+                                    & std::get<BitsetType>(this->entities[i]))
+                                        == signatureBitset)
+                                {
+                                    helper.callInstance(i, *this, function);
+                                }
+                            }
+                        },
+                        begin, end);
+                    }
+                    for(std::size_t i = 0; i < threadCount; ++i)
+                    {
+                        threads[i].join();
                     }
                 }
             }));
@@ -624,6 +728,14 @@ namespace EC
 
         /*!
             \brief Call all stored functions.
+
+            A second parameter can be optionally used to specify the number
+            of threads to use when calling the functions. Otherwise, this
+            function is by default not multi-threaded.
+            Note that multi-threading is based on splitting the task of calling
+            the functions across sections of entities. Thus if there are only
+            a small amount of entities in the manager, then using multiple
+            threads may not have as great of a speed-up.
 
             Example:
             \code{.cpp}
@@ -635,22 +747,33 @@ namespace EC
                 // call all stored functions
                 manager.callForMatchingFunctions();
 
+                // call all stored functions with 4 threads
+                manager.callForMatchingFunctions(4);
+
                 // remove all stored functions
                 manager.clearForMatchingFunctions();
             \endcode
         */
-        void callForMatchingFunctions()
+        void callForMatchingFunctions(std::size_t threadCount = 1)
         {
             for(auto functionIter = forMatchingFunctions.begin();
                 functionIter != forMatchingFunctions.end();
                 ++functionIter)
             {
-                functionIter->second();
+                functionIter->second(threadCount);
             }
         }
 
         /*!
             \brief Call a specific stored function.
+
+            A second parameter can be optionally used to specify the number
+            of threads to use when calling the function. Otherwise, this
+            function is by default not multi-threaded.
+            Note that multi-threading is based on splitting the task of calling
+            the function across sections of entities. Thus if there are only
+            a small amount of entities in the manager, then using multiple
+            threads may not have as great of a speed-up.
 
             Example:
             \code{.cpp}
@@ -662,18 +785,22 @@ namespace EC
 
                 // call the previously added function
                 manager.callForMatchingFunction(id);
+
+                // call the previously added function with 4 threads
+                manager.callForMatchingFunction(id, 4);
             \endcode
 
             \return False if a function with the given id does not exist.
         */
-        bool callForMatchingFunction(std::size_t id)
+        bool callForMatchingFunction(std::size_t id,
+            std::size_t threadCount = 1)
         {
             auto iter = forMatchingFunctions.find(id);
             if(iter == forMatchingFunctions.end())
             {
                 return false;
             }
-            iter->second();
+            iter->second(threadCount);
             return true;
         }
 

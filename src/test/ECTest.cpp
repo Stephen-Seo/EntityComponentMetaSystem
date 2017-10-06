@@ -458,3 +458,117 @@ TEST(EC, DeletedEntityID)
     EXPECT_TRUE(manager.hasEntity(0));
 }
 
+TEST(EC, MultiThreaded)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    for(unsigned int i = 0; i < 17; ++i)
+    {
+        manager.addEntity();
+        manager.addComponent<C0>(i, 0, 0);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i).y);
+    }
+
+    manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
+        [] (const std::size_t& eid, C0& c) {
+            c.x = 1;
+            c.y = 2;
+        }
+    );
+
+    for(unsigned int i = 0; i < 17; ++i)
+    {
+        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+    }
+
+    for(unsigned int i = 3; i < 17; ++i)
+    {
+        manager.deleteEntity(i);
+    }
+    manager.cleanup();
+
+    for(unsigned int i = 0; i < 3; ++i)
+    {
+        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+    }
+
+    manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
+        [] (const std::size_t& eid, C0& c) {
+            c.x = 3;
+            c.y = 4;
+        },
+        8
+    );
+
+    for(unsigned int i = 0; i < 3; ++i)
+    {
+        EXPECT_EQ(3, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(4, manager.getEntityData<C0>(i).y);
+    }
+
+    manager.reset();
+
+    for(unsigned int i = 0; i < 17; ++i)
+    {
+        manager.addEntity();
+        manager.addComponent<C0>(i, 0, 0);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i).y);
+    }
+
+    auto f0 = manager.addForMatchingFunction<EC::Meta::TypeList<C0> >(
+        [] (const std::size_t& eid, C0& c) {
+            c.x = 1;
+            c.y = 2;
+        }
+    );
+
+    manager.callForMatchingFunctions(2);
+
+    for(unsigned int i = 0; i < 17; ++i)
+    {
+        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+    }
+
+    auto f1 = manager.addForMatchingFunction<EC::Meta::TypeList<C0> >(
+        [] (const std::size_t& eid, C0& c) {
+            c.x = 3;
+            c.y = 4;
+        }
+    );
+
+    manager.callForMatchingFunction(f1, 4);
+
+    for(unsigned int i = 0; i < 17; ++i)
+    {
+        EXPECT_EQ(3, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(4, manager.getEntityData<C0>(i).y);
+    }
+
+    for(unsigned int i = 4; i < 17; ++i)
+    {
+        manager.deleteEntity(i);
+    }
+    manager.cleanup();
+
+    manager.callForMatchingFunction(f0, 8);
+
+    for(unsigned int i = 0; i < 4; ++i)
+    {
+        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+    }
+
+    manager.callForMatchingFunction(f1, 8);
+
+    for(unsigned int i = 0; i < 4; ++i)
+    {
+        EXPECT_EQ(3, manager.getEntityData<C0>(i).x);
+        EXPECT_EQ(4, manager.getEntityData<C0>(i).y);
+    }
+}
+

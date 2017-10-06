@@ -17,6 +17,7 @@ set(EntityComponentSystem_HEADERS
     EC/EC.hpp)
 
 add_library(EntityComponentSystem INTERFACE)
+target_link_libraries(EntityComponentSystem INTERFACE pthread)
 target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 
