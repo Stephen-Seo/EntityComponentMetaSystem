@@ -24,7 +24,7 @@ target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_CURRENT_SOURC
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -D NDEBUG")
 

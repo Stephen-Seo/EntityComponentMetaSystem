@@ -553,7 +553,7 @@ namespace EC
             }
             else
             {
-                std::thread threads[threadCount];
+                std::vector<std::thread> threads(threadCount);
                 std::size_t s = currentSize / threadCount;
                 for(std::size_t i = 0; i < threadCount; ++i)
                 {
@@ -682,7 +682,7 @@ namespace EC
                 }
                 else
                 {
-                    std::thread threads[threadCount];
+                    std::vector<std::thread> threads(threadCount);
                     std::size_t s = this->currentSize / threadCount;
                     for(std::size_t i = 0; i < threadCount; ++ i)
                     {
