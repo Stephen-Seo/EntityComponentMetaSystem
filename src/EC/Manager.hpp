@@ -334,7 +334,7 @@ namespace EC
                 {
                     // lhs is marked for deletion
 
-                    // store deleted and changed id to map
+                    // store deleted and changed id to queue
                     changedQueue.push(std::make_tuple(false, lhs, 0));
                     changedQueue.push(std::make_tuple(true, rhs, lhs));
 
