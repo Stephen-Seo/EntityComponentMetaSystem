@@ -436,26 +436,35 @@ TEST(EC, DeletedEntityID)
     auto e0 = manager.addEntity();
     auto e1 = manager.addEntity();
     auto e2 = manager.addEntity();
+    auto e3 = manager.addEntity();
 
     manager.deleteEntity(e0);
+    manager.deleteEntity(e1);
 
-    auto changedMap = manager.cleanup();
+    auto changedQueue = manager.cleanup();
 
-    for(decltype(changedMap)::value_type& p : changedMap)
+    while(!changedQueue.empty())
     {
-        if(p.first == 0)
+        auto t = changedQueue.front();
+        if(std::get<1>(t) == 0)
         {
-            EXPECT_FALSE(p.second.first);
+            EXPECT_FALSE(std::get<0>(t));
         }
-        else if(p.first == 2)
+        else if(std::get<1>(t) == 1)
         {
-            EXPECT_TRUE(p.second.first);
-            EXPECT_EQ(0, p.second.second);
+            EXPECT_FALSE(std::get<0>(t));
         }
+        else
+        {
+            EXPECT_TRUE(std::get<0>(t));
+        }
+        changedQueue.pop();
     }
 
     EXPECT_FALSE(manager.hasEntity(2));
+    EXPECT_FALSE(manager.hasEntity(3));
     EXPECT_TRUE(manager.hasEntity(0));
+    EXPECT_TRUE(manager.hasEntity(1));
 }
 
 TEST(EC, MultiThreaded)

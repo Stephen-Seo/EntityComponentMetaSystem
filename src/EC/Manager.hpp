@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <thread>
+#include <queue>
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
@@ -282,21 +283,31 @@ namespace EC
             <b>This function should be called periodically to correctly handle
             deletion of entities.</b>
 
-            The map returned by this function lists all entities that have
+            The queue returned by this function lists all entities that have
             changed as a result of calling this function.
-            The size_t key refers to the original entity id of the entity,
-            the bool value refers to whether or not the entity is still alive,
-            and the size_t value refers to the new entity id if the entity
-            is still alive.
+
+            The first parameter in the tuple (bool) is true if the entity has
+            been relocated (entity id has changed) and is false if the entity
+            has been deleted.
+
+            The second parameter (size_t) is the original entity id of the
+            entity. If the previous parameter was false for deleted, then this
+            refers to the id of that deleted entity. If the previous parameter
+            was true for relocated, then this refers to the previous id of the
+            relocated entity
+
+            The third parameter (size_t) is the new entity id of the entity if
+            the entity was relocated. If the entity was deleted then this
+            parameter is undefined as it is not used in that case.
         */
         using CleanupReturnType =
-            std::unordered_map<std::size_t, std::pair<bool, std::size_t> >;
+            std::queue<std::tuple<bool, std::size_t, std::size_t> >;
         CleanupReturnType cleanup()
         {
-            CleanupReturnType changedMap;
+            CleanupReturnType changedQueue;
             if(currentSize == 0)
             {
-                return changedMap;
+                return changedQueue;
             }
 
             std::size_t rhs = currentSize - 1;
@@ -309,10 +320,9 @@ namespace EC
                     if(rhs == 0)
                     {
                         currentSize = 0;
-                        return changedMap;
+                        return changedQueue;
                     }
-                    changedMap.insert(std::make_pair(rhs, std::make_pair(
-                        false, 0)));
+                    changedQueue.push(std::make_tuple(false, rhs, 0));
                     std::get<BitsetType>(entities[rhs]).reset();
                     --rhs;
                 }
@@ -325,10 +335,8 @@ namespace EC
                     // lhs is marked for deletion
 
                     // store deleted and changed id to map
-                    changedMap.insert(std::make_pair(lhs, std::make_pair(
-                        false, 0)));
-                    changedMap.insert(std::make_pair(rhs, std::make_pair(
-                        true, lhs)));
+                    changedQueue.push(std::make_tuple(false, lhs, 0));
+                    changedQueue.push(std::make_tuple(true, rhs, lhs));
 
                     // swap lhs entity with rhs entity
                     std::swap(entities[lhs], entities.at(rhs));
@@ -346,7 +354,7 @@ namespace EC
             }
             currentSize = rhs + 1;
 
-            return changedMap;
+            return changedQueue;
         }
 
         /*!
