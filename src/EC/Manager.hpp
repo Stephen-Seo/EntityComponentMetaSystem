@@ -158,6 +158,29 @@ namespace EC
         }
 
         /*!
+            \brief Returns the current size or number of entities in the system.
+
+            Note that this size includes entities that have been marked for
+            deletion but not yet cleaned up by the cleanup function.
+        */
+        std::size_t getCurrentSize() const
+        {
+            return currentSize;
+        }
+
+        /*
+            \brief Returns the current capacity or number of entities the system
+                can hold.
+
+            Note that when capacity is exceeded, the capacity is increased by
+            EC_GROW_SIZE_AMOUNT.
+        */
+        std::size_t getCurrentCapacity() const
+        {
+            return currentCapacity;
+        }
+
+        /*!
             \brief Returns a const reference to an Entity's info.
 
             An Entity's info is a std::tuple with a bool, std::size_t, and a
