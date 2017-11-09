@@ -582,3 +582,92 @@ TEST(EC, MultiThreaded)
     }
 }
 
+TEST(EC, ForMatchingSignatures)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    auto e = {
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity()
+    };
+
+    for(auto id : e)
+    {
+        manager.addComponent<C0>(id);
+        manager.addComponent<C1>(id);
+        manager.addTag<T0>(id);
+
+        auto& c1 = manager.getEntityData<C1>(id);
+        c1.vx = 0;
+        c1.vy = 0;
+    }
+
+    using namespace EC::Meta;
+
+    manager.forMatchingSignatures<
+        TypeList<TypeList<C0>, TypeList<C0, C1> >
+    >(
+        std::make_tuple(
+        [] (std::size_t eid, C0& c) {
+            EXPECT_EQ(c.x, 0);
+            EXPECT_EQ(c.y, 0);
+            c.x = 1;
+            c.y = 1;
+        },
+        [] (std::size_t eid, C0& c0, C1& c1) {
+            EXPECT_EQ(c0.x, 1);
+            EXPECT_EQ(c0.y, 1);
+            EXPECT_EQ(c1.vx, 0);
+            EXPECT_EQ(c1.vy, 0);
+            c1.vx = c0.x;
+            c1.vy = c0.y;
+            c0.x = 2;
+            c0.y = 2;
+        })
+    );
+
+    for(auto id : e)
+    {
+        EXPECT_EQ(2, manager.getEntityData<C0>(id).x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(id).y);
+        EXPECT_EQ(1, manager.getEntityData<C1>(id).vx);
+        EXPECT_EQ(1, manager.getEntityData<C1>(id).vy);
+    }
+
+    manager.forMatchingSignatures<
+        TypeList<TypeList<C0>, TypeList<C0, C1> >
+    >
+    (
+        std::make_tuple(
+        [] (std::size_t eid, C0& c) {
+            EXPECT_EQ(2, c.x);
+            EXPECT_EQ(2, c.y);
+            c.x = 5;
+            c.y = 7;
+        },
+        [] (std::size_t eid, C0& c0, C1& c1) {
+            EXPECT_EQ(5, c0.x);
+            EXPECT_EQ(7, c0.y);
+            EXPECT_EQ(1, c1.vx);
+            EXPECT_EQ(1, c1.vy);
+
+            c1.vx += c0.x;
+            c1.vy += c0.y;
+
+            c0.x = 1;
+            c0.y = 2;
+        }),
+        3
+    );
+
+    for(auto eid : e)
+    {
+        EXPECT_EQ(1, manager.getEntityData<C0>(eid).x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(eid).y);
+        EXPECT_EQ(6, manager.getEntityData<C1>(eid).vx);
+        EXPECT_EQ(8, manager.getEntityData<C1>(eid).vy);
+    }
+}
+

@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <thread>
 #include <queue>
+#include <mutex>
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
@@ -963,6 +964,186 @@ namespace EC
         bool deleteForMatchingFunction(std::size_t index)
         {
             return forMatchingFunctions.erase(index) == 1;
+        }
+
+    public:
+
+        /*!
+            \brief Call multiple functions with mulitple signatures on all
+                living entities.
+
+            (Living entities as in entities that have not been marked for
+            deletion.)
+
+            This function requires the first template parameter to be a
+            EC::Meta::TypeList of signatures. Note that a signature is a
+            EC::Meta::TypeList of components and tags, meaning that SigList
+            is a TypeList of TypeLists.
+
+            The second template parameter can be inferred from the function
+            parameter which should be a tuple of functions. The function
+            at any index in the tuple should match with a signature of the
+            same index in the SigList. Behavior is undefined if there are
+            less functions than signatures.
+
+            See the Unit Test of this function in src/test/ECTest.cpp for
+            usage examples.
+
+            This function was created for the use case where there are many
+            entities in the system which can cause multiple calls to
+            forMatchingSignature to be slow due to the overhead of iterating
+            through the entire list of entities on each invocation.
+            This function instead iterates through all entities once,
+            storing matching entities in a vector of vectors (for each
+            signature and function pair) and then calling functions with
+            the matching list of entities.
+
+            Note that multi-threaded or not, functions will be called in order
+            of signatures. The first function signature pair will be called
+            first, then the second, third, and so on.
+            If this function is called with more than 1 thread specified, then
+            the order of entities called is not guaranteed. Otherwise entities
+            will be called in consecutive order by their ID.
+        */
+        template <typename SigList, typename FuncTuple>
+        void forMatchingSignatures(FuncTuple funcTuple,
+            std::size_t threadCount = 1)
+        {
+            std::vector<std::vector<std::size_t> > multiMatchingEntities(
+                SigList::size);
+            BitsetType signatureBitsets[SigList::size];
+
+            // generate bitsets for each signature
+            EC::Meta::forEach<SigList>(
+            [this, &signatureBitsets] (auto signature) {
+                signatureBitsets[
+                        EC::Meta::IndexOf<decltype(signature), SigList>{} ] =
+                    BitsetType::template generateBitset<decltype(signature)>();
+            });
+
+            // find and store entities matching signatures
+            if(threadCount <= 1)
+            {
+                for(std::size_t eid = 0; eid < currentSize; ++eid)
+                {
+                    if(!isAlive(eid))
+                    {
+                        continue;
+                    }
+                    for(std::size_t i = 0; i < SigList::size; ++i)
+                    {
+                        if((signatureBitsets[i]
+                            & std::get<BitsetType>(entities[eid]))
+                                == signatureBitsets[i])
+                        {
+                            multiMatchingEntities[i].push_back(eid);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                std::vector<std::thread> threads(threadCount);
+                std::size_t s = currentSize / threadCount;
+                std::mutex sigsMutexes[SigList::size];
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    std::size_t begin = s * i;
+                    std::size_t end;
+                    if(i == threadCount - 1)
+                    {
+                        end = currentSize;
+                    }
+                    else
+                    {
+                        end = s * (i + 1);
+                    }
+                    threads[i] = std::thread(
+                    [this, &signatureBitsets, &multiMatchingEntities,
+                        &sigsMutexes]
+                    (std::size_t begin, std::size_t end) {
+                        for(std::size_t eid = begin; eid < end; ++eid)
+                        {
+                            if(!isAlive(eid))
+                            {
+                                continue;
+                            }
+                            for(std::size_t i = 0; i < SigList::size; ++i)
+                            {
+                                if((signatureBitsets[i]
+                                    & std::get<BitsetType>(entities[eid]))
+                                        == signatureBitsets[i])
+                                {
+                                    std::lock_guard<std::mutex>{sigsMutexes[i]};
+                                    multiMatchingEntities[i].push_back(eid);
+                                }
+                            }
+                        }
+                    },
+                    begin, end);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    threads[i].join();
+                }
+            }
+
+            // call functions on matching entities
+            EC::Meta::forEach<SigList>(
+            [this, &multiMatchingEntities, &funcTuple, &threadCount]
+            (auto signature) {
+                using SignatureComponents =
+                    typename EC::Meta::Matching<
+                        decltype(signature), ComponentsList>::type;
+                using Helper =
+                    EC::Meta::Morph<
+                        SignatureComponents,
+                        ForMatchingSignatureHelper<> >;
+                using Index = EC::Meta::IndexOf<decltype(signature),
+                    SigList>;
+                if(threadCount <= 1)
+                {
+                    for(auto iter = multiMatchingEntities[Index{}].begin();
+                        iter != multiMatchingEntities[Index{}].end(); ++iter)
+                    {
+                        Helper::call(*iter, *this,
+                            std::get<Index{}>(funcTuple));
+                    }
+                }
+                else
+                {
+                    std::vector<std::thread> threads(threadCount);
+                    std::size_t s = multiMatchingEntities[Index{}].size()
+                        / threadCount;
+                    for(std::size_t i = 0; i < threadCount; ++i)
+                    {
+                        std::size_t begin = s * i;
+                        std::size_t end;
+                        if(i == threadCount - 1)
+                        {
+                            end = multiMatchingEntities[Index{}].size();
+                        }
+                        else
+                        {
+                            end = s * (i + 1);
+                        }
+                        threads[i] = std::thread(
+                        [this, &multiMatchingEntities, &funcTuple]
+                        (std::size_t begin, std::size_t end)
+                        {
+                            for(std::size_t i = begin; i < end; ++i)
+                            {
+                                Helper::call(multiMatchingEntities[Index{}][i],
+                                    *this, std::get<Index{}>(funcTuple));
+                            }
+                        }, begin, end);
+                    }
+                    for(std::size_t i = 0; i < threadCount; ++i)
+                    {
+                        threads[i].join();
+                    }
+                }
+            });
         }
 
         /*!
