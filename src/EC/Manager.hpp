@@ -24,6 +24,10 @@
 #include <queue>
 #include <mutex>
 
+#ifndef NDEBUG
+  #include <iostream>
+#endif
+
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
 #include "Bitset.hpp"
@@ -966,8 +970,6 @@ namespace EC
             return forMatchingFunctions.erase(index) == 1;
         }
 
-    public:
-
         /*!
             \brief Call multiple functions with mulitple signatures on all
                 living entities.
@@ -1074,8 +1076,10 @@ namespace EC
                                     & std::get<BitsetType>(entities[eid]))
                                         == signatureBitsets[i])
                                 {
-                                    std::lock_guard<std::mutex>{sigsMutexes[i]};
+                                    std::lock_guard<std::mutex> guard(
+                                        sigsMutexes[i]);
                                     multiMatchingEntities[i].push_back(eid);
+
                                 }
                             }
                         }
@@ -1101,19 +1105,20 @@ namespace EC
                         ForMatchingSignatureHelper<> >;
                 using Index = EC::Meta::IndexOf<decltype(signature),
                     SigList>;
+                constexpr std::size_t index = Index{};
                 if(threadCount <= 1)
                 {
-                    for(auto iter = multiMatchingEntities[Index{}].begin();
-                        iter != multiMatchingEntities[Index{}].end(); ++iter)
+                    for(auto iter = multiMatchingEntities[index].begin();
+                        iter != multiMatchingEntities[index].end(); ++iter)
                     {
                         Helper::call(*iter, *this,
-                            std::get<Index{}>(funcTuple));
+                            std::get<index>(funcTuple));
                     }
                 }
                 else
                 {
                     std::vector<std::thread> threads(threadCount);
-                    std::size_t s = multiMatchingEntities[Index{}].size()
+                    std::size_t s = multiMatchingEntities[index].size()
                         / threadCount;
                     for(std::size_t i = 0; i < threadCount; ++i)
                     {
@@ -1121,7 +1126,7 @@ namespace EC
                         std::size_t end;
                         if(i == threadCount - 1)
                         {
-                            end = multiMatchingEntities[Index{}].size();
+                            end = multiMatchingEntities[index].size();
                         }
                         else
                         {
@@ -1131,10 +1136,10 @@ namespace EC
                         [this, &multiMatchingEntities, &funcTuple]
                         (std::size_t begin, std::size_t end)
                         {
-                            for(std::size_t i = begin; i < end; ++i)
+                            for(std::size_t j = begin; j < end; ++j)
                             {
-                                Helper::call(multiMatchingEntities[Index{}][i],
-                                    *this, std::get<Index{}>(funcTuple));
+                                Helper::call(multiMatchingEntities[index][j],
+                                    *this, std::get<index>(funcTuple));
                             }
                         }, begin, end);
                     }

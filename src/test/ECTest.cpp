@@ -4,6 +4,8 @@
 #include <iostream>
 #include <tuple>
 #include <memory>
+#include <unordered_map>
+#include <mutex>
 
 #include <EC/Meta/Meta.hpp>
 #include <EC/EC.hpp>
@@ -586,22 +588,35 @@ TEST(EC, ForMatchingSignatures)
 {
     EC::Manager<ListComponentsAll, ListTagsAll> manager;
 
-    auto e = {
+    std::size_t e[] = {
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity(),
         manager.addEntity(),
         manager.addEntity(),
         manager.addEntity(),
         manager.addEntity()
     };
 
+    auto& first = e[0];
+    auto& last = e[6];
+
     for(auto id : e)
     {
-        manager.addComponent<C0>(id);
-        manager.addComponent<C1>(id);
-        manager.addTag<T0>(id);
+        if(id != first && id != last)
+        {
+            manager.addComponent<C0>(id);
+            manager.addComponent<C1>(id);
+            manager.addTag<T0>(id);
 
-        auto& c1 = manager.getEntityData<C1>(id);
-        c1.vx = 0;
-        c1.vy = 0;
+            auto& c1 = manager.getEntityData<C1>(id);
+            c1.vx = 0;
+            c1.vy = 0;
+        }
+        else
+        {
+            manager.addComponent<C0>(id);
+        }
     }
 
     using namespace EC::Meta;
@@ -630,28 +645,85 @@ TEST(EC, ForMatchingSignatures)
 
     for(auto id : e)
     {
-        EXPECT_EQ(2, manager.getEntityData<C0>(id).x);
-        EXPECT_EQ(2, manager.getEntityData<C0>(id).y);
-        EXPECT_EQ(1, manager.getEntityData<C1>(id).vx);
-        EXPECT_EQ(1, manager.getEntityData<C1>(id).vy);
+        if(id != first && id != last)
+        {
+            EXPECT_EQ(2, manager.getEntityData<C0>(id).x);
+            EXPECT_EQ(2, manager.getEntityData<C0>(id).y);
+            EXPECT_EQ(1, manager.getEntityData<C1>(id).vx);
+            EXPECT_EQ(1, manager.getEntityData<C1>(id).vy);
+        }
+        else
+        {
+            EXPECT_EQ(1, manager.getEntityData<C0>(id).x);
+            EXPECT_EQ(1, manager.getEntityData<C0>(id).y);
+        }
     }
+
+    {
+    std::unordered_map<std::size_t,int> cx;
+    std::unordered_map<std::size_t,int> cy;
+    std::unordered_map<std::size_t,int> c0x;
+    std::unordered_map<std::size_t,int> c0y;
+    std::unordered_map<std::size_t,int> c1vx;
+    std::unordered_map<std::size_t,int> c1vy;
+    std::mutex cxM;
+    std::mutex cyM;
+    std::mutex c0xM;
+    std::mutex c0yM;
+    std::mutex c1vxM;
+    std::mutex c1vyM;
 
     manager.forMatchingSignatures<
         TypeList<TypeList<C0>, TypeList<C0, C1> >
     >
     (
         std::make_tuple(
-        [] (std::size_t eid, C0& c) {
-            EXPECT_EQ(2, c.x);
-            EXPECT_EQ(2, c.y);
-            c.x = 5;
-            c.y = 7;
+        [&first, &last, &cx, &cy, &cxM, &cyM] (std::size_t eid, C0& c) {
+            if(eid != first && eid != last)
+            {
+                {
+                    std::lock_guard<std::mutex> guard(cxM);
+                    cx.insert(std::make_pair(eid, c.x));
+                }
+                {
+                    std::lock_guard<std::mutex> guard(cyM);
+                    cy.insert(std::make_pair(eid, c.y));
+                }
+                c.x = 5;
+                c.y = 7;
+            }
+            else
+            {
+                {
+                    std::lock_guard<std::mutex> guard(cxM);
+                    cx.insert(std::make_pair(eid, c.x));
+                }
+                {
+                    std::lock_guard<std::mutex> guard(cyM);
+                    cy.insert(std::make_pair(eid, c.y));
+                }
+                c.x = 11;
+                c.y = 13;
+            }
         },
-        [] (std::size_t eid, C0& c0, C1& c1) {
-            EXPECT_EQ(5, c0.x);
-            EXPECT_EQ(7, c0.y);
-            EXPECT_EQ(1, c1.vx);
-            EXPECT_EQ(1, c1.vy);
+        [&c0x, &c0y, &c1vx, &c1vy, &c0xM, &c0yM, &c1vxM, &c1vyM]
+        (std::size_t eid, C0& c0, C1& c1) {
+            {
+                std::lock_guard<std::mutex> guard(c0xM);
+                c0x.insert(std::make_pair(eid, c0.x));
+            }
+            {
+                std::lock_guard<std::mutex> guard(c0yM);
+                c0y.insert(std::make_pair(eid, c0.y));
+            }
+            {
+                std::lock_guard<std::mutex> guard(c1vxM);
+                c1vx.insert(std::make_pair(eid, c1.vx));
+            }
+            {
+                std::lock_guard<std::mutex> guard(c1vyM);
+                c1vy.insert(std::make_pair(eid, c1.vy));
+            }
 
             c1.vx += c0.x;
             c1.vy += c0.y;
@@ -661,13 +733,61 @@ TEST(EC, ForMatchingSignatures)
         }),
         3
     );
+    
+    for(auto iter = cx.begin(); iter != cx.end(); ++iter)
+    {
+        if(iter->first != first && iter->first != last)
+        {
+            EXPECT_EQ(2, iter->second);
+        }
+        else
+        {
+            EXPECT_EQ(1, iter->second);
+        }
+    }
+    for(auto iter = cy.begin(); iter != cy.end(); ++iter)
+    {
+        if(iter->first != first && iter->first != last)
+        {
+            EXPECT_EQ(2, iter->second);
+        }
+        else
+        {
+            EXPECT_EQ(1, iter->second);
+        }
+    }
+    for(auto iter = c0x.begin(); iter != c0x.end(); ++iter)
+    {
+        EXPECT_EQ(5, iter->second);
+    }
+    for(auto iter = c0y.begin(); iter != c0y.end(); ++iter)
+    {
+        EXPECT_EQ(7, iter->second);
+    }
+    for(auto iter = c1vx.begin(); iter != c1vx.end(); ++iter)
+    {
+        EXPECT_EQ(1, iter->second);
+    }
+    for(auto iter = c1vy.begin(); iter != c1vy.end(); ++iter)
+    {
+        EXPECT_EQ(1, iter->second);
+    }
+    }
 
     for(auto eid : e)
     {
-        EXPECT_EQ(1, manager.getEntityData<C0>(eid).x);
-        EXPECT_EQ(2, manager.getEntityData<C0>(eid).y);
-        EXPECT_EQ(6, manager.getEntityData<C1>(eid).vx);
-        EXPECT_EQ(8, manager.getEntityData<C1>(eid).vy);
+        if(eid != first && eid != last)
+        {
+            EXPECT_EQ(1, manager.getEntityData<C0>(eid).x);
+            EXPECT_EQ(2, manager.getEntityData<C0>(eid).y);
+            EXPECT_EQ(6, manager.getEntityData<C1>(eid).vx);
+            EXPECT_EQ(8, manager.getEntityData<C1>(eid).vy);
+        }
+        else
+        {
+            EXPECT_EQ(11, manager.getEntityData<C0>(eid).x);
+            EXPECT_EQ(13, manager.getEntityData<C0>(eid).y);
+        }
     }
 }
 
