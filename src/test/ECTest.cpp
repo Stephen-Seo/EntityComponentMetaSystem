@@ -791,3 +791,113 @@ TEST(EC, ForMatchingSignatures)
     }
 }
 
+TEST(EC, forMatchingPtrs)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    std::size_t e[] = {
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity(),
+        manager.addEntity()
+    };
+
+    auto& first = e[0];
+    auto& last = e[6];
+
+    for(auto eid : e)
+    {
+        if(eid != first && eid != last)
+        {
+            manager.addComponent<C0>(eid);
+            manager.addComponent<C1>(eid);
+        }
+        else
+        {
+            manager.addComponent<C0>(eid);
+            manager.addTag<T0>(eid);
+        }
+    }
+
+    const auto func0 = [] (std::size_t eid, C0& c0, C1& c1)
+    {
+        c0.x = 1;
+        c0.y = 2;
+        c1.vx = 3;
+        c1.vy = 4;
+    };
+    const auto func1 = [] (std::size_t eid, C0& c0)
+    {
+        c0.x = 11;
+        c0.y = 12;
+    };
+
+    using namespace EC::Meta;
+
+    manager.forMatchingSignaturePtr<TypeList<C0, C1> >(
+        &func0
+    );
+    manager.forMatchingSignaturePtr<TypeList<C0, T0> >(
+        &func1
+    );
+
+    for(auto eid : e)
+    {
+        if(eid != first && eid != last)
+        {
+            C0& c0 = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(1, c0.x);
+            EXPECT_EQ(2, c0.y);
+            c0.x = 0;
+            c0.y = 0;
+            C1& c1 = manager.getEntityData<C1>(eid);
+            EXPECT_EQ(3, c1.vx);
+            EXPECT_EQ(4, c1.vy);
+            c1.vx = 0;
+            c1.vy = 0;
+        }
+        else
+        {
+            C0& c = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(11, c.x);
+            EXPECT_EQ(12, c.y);
+            c.x = 0;
+            c.y = 0;
+        }
+    }
+
+    manager.forMatchingSignaturesPtr<TypeList<
+        TypeList<C0, C1>,
+        TypeList<C0, T0> > >(
+        std::make_tuple(&func0, &func1)
+    );
+
+    for(auto eid : e)
+    {
+        if(eid != first && eid != last)
+        {
+            C0& c0 = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(1, c0.x);
+            EXPECT_EQ(2, c0.y);
+            c0.x = 0;
+            c0.y = 0;
+            C1& c1 = manager.getEntityData<C1>(eid);
+            EXPECT_EQ(3, c1.vx);
+            EXPECT_EQ(4, c1.vy);
+            c1.vx = 0;
+            c1.vy = 0;
+        }
+        else
+        {
+            C0& c = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(11, c.x);
+            EXPECT_EQ(12, c.y);
+            c.x = 0;
+            c.y = 0;
+        }
+    }
+}
+

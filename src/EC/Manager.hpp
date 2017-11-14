@@ -515,6 +515,18 @@ namespace EC
             }
 
             template <typename CType, typename Function>
+            static void callPtr(
+                const std::size_t& entityID,
+                CType& ctype,
+                Function* function)
+            {
+                (*function)(
+                    entityID,
+                    ctype.template getEntityData<Types>(entityID)...
+                );
+            }
+
+            template <typename CType, typename Function>
             void callInstance(
                 const std::size_t& entityID,
                 CType& ctype,
@@ -524,6 +536,18 @@ namespace EC
                     entityID,
                     ctype,
                     std::forward<Function>(function));
+            }
+
+            template <typename CType, typename Function>
+            void callInstancePtr(
+                const std::size_t& entityID,
+                CType& ctype,
+                Function* function) const
+            {
+                ForMatchingSignatureHelper<Types...>::callPtr(
+                    entityID,
+                    ctype,
+                    function);
             }
         };
 
@@ -632,6 +656,112 @@ namespace EC
             }
         }
 
+        /*!
+            \brief Calls the given function on all Entities matching the given
+                Signature.
+
+            The function pointer given to this function must accept std::size_t
+            as its first parameter and Component references for the rest of the
+            parameters. Tags specified in the Signature are only used as
+            filters and will not be given as a parameter to the function.
+
+            The second parameter is default 1 (not multi-threaded). If the
+            second parameter threadCount is set to a value greater than 1, then
+            threadCount threads will be used.
+            Note that multi-threading is based on splitting the task of calling
+            the function across sections of entities. Thus if there are only
+            a small amount of entities in the manager, then using multiple
+            threads may not have as great of a speed-up.
+
+            Example:
+            \code{.cpp}
+                auto function = [] (std::size_t ID, C0& component0,
+                    C1& component1) {
+                    // Lambda function contents here
+                };
+                manager.forMatchingSignaturePtr<TypeList<C0, C1, T0>>(
+                    &function, // ptr
+                    4 // four threads
+                );
+            \endcode
+            Note, the ID given to the function is not permanent. An entity's ID
+            may change when cleanup() is called.
+        */
+        template <typename Signature, typename Function>
+        void forMatchingSignaturePtr(Function* function,
+            std::size_t threadCount = 1)
+        {
+            using SignatureComponents =
+                typename EC::Meta::Matching<Signature, ComponentsList>::type;
+            using Helper =
+                EC::Meta::Morph<
+                    SignatureComponents,
+                    ForMatchingSignatureHelper<> >;
+
+            BitsetType signatureBitset =
+                BitsetType::template generateBitset<Signature>();
+            if(threadCount <= 1)
+            {
+                for(std::size_t i = 0; i < currentSize; ++i)
+                {
+                    if(!std::get<bool>(entities[i]))
+                    {
+                        continue;
+                    }
+
+                    if((signatureBitset & std::get<BitsetType>(entities[i]))
+                        == signatureBitset)
+                    {
+                        Helper::callPtr(i, *this, function);
+                    }
+                }
+            }
+            else
+            {
+                std::vector<std::thread> threads(threadCount);
+                std::size_t s = currentSize / threadCount;
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    std::size_t begin = s * i;
+                    std::size_t end;
+                    if(i == threadCount - 1)
+                    {
+                        end = currentSize;
+                    }
+                    else
+                    {
+                        end = s * (i + 1);
+                    }
+                    threads[i] = std::thread([this, &function, &signatureBitset]
+                            (std::size_t begin,
+                            std::size_t end) {
+                        for(std::size_t i = begin; i < end; ++i)
+                        {
+                            if(!std::get<bool>(this->entities[i]))
+                            {
+                                continue;
+                            }
+
+                            if((signatureBitset
+                                    & std::get<BitsetType>(entities[i]))
+                                == signatureBitset)
+                            {
+                                Helper::callPtr(i, *this, function);
+                            }
+                        }
+                    },
+                        begin,
+                        end);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    threads[i].join();
+                }
+            }
+        }
+
+
+
     private:
         std::unordered_map<std::size_t, std::function<void(std::size_t)> >
             forMatchingFunctions;
@@ -712,7 +842,7 @@ namespace EC
                             & std::get<BitsetType>(this->entities[i]))
                                 == signatureBitset)
                         {
-                            helper.callInstance(i, *this, function);
+                            helper.callInstancePtr(i, *this, &function);
                         }
                     }
                 }
@@ -746,7 +876,7 @@ namespace EC
                                     & std::get<BitsetType>(this->entities[i]))
                                         == signatureBitset)
                                 {
-                                    helper.callInstance(i, *this, function);
+                                    helper.callInstancePtr(i, *this, &function);
                                 }
                             }
                         },
@@ -1139,6 +1269,190 @@ namespace EC
                             for(std::size_t j = begin; j < end; ++j)
                             {
                                 Helper::call(multiMatchingEntities[index][j],
+                                    *this, std::get<index>(funcTuple));
+                            }
+                        }, begin, end);
+                    }
+                    for(std::size_t i = 0; i < threadCount; ++i)
+                    {
+                        threads[i].join();
+                    }
+                }
+            });
+        }
+
+        /*!
+            \brief Call multiple functions with mulitple signatures on all
+                living entities.
+
+            (Living entities as in entities that have not been marked for
+            deletion.)
+
+            Note that this function requires the tuple of functions to hold
+            pointers to functions, not just functions.
+
+            This function requires the first template parameter to be a
+            EC::Meta::TypeList of signatures. Note that a signature is a
+            EC::Meta::TypeList of components and tags, meaning that SigList
+            is a TypeList of TypeLists.
+
+            The second template parameter can be inferred from the function
+            parameter which should be a tuple of functions. The function
+            at any index in the tuple should match with a signature of the
+            same index in the SigList. Behavior is undefined if there are
+            less functions than signatures.
+
+            See the Unit Test of this function in src/test/ECTest.cpp for
+            usage examples.
+
+            This function was created for the use case where there are many
+            entities in the system which can cause multiple calls to
+            forMatchingSignature to be slow due to the overhead of iterating
+            through the entire list of entities on each invocation.
+            This function instead iterates through all entities once,
+            storing matching entities in a vector of vectors (for each
+            signature and function pair) and then calling functions with
+            the matching list of entities.
+
+            Note that multi-threaded or not, functions will be called in order
+            of signatures. The first function signature pair will be called
+            first, then the second, third, and so on.
+            If this function is called with more than 1 thread specified, then
+            the order of entities called is not guaranteed. Otherwise entities
+            will be called in consecutive order by their ID.
+        */
+        template <typename SigList, typename FuncTuple>
+        void forMatchingSignaturesPtr(FuncTuple funcTuple,
+            std::size_t threadCount = 1)
+        {
+            std::vector<std::vector<std::size_t> > multiMatchingEntities(
+                SigList::size);
+            BitsetType signatureBitsets[SigList::size];
+
+            // generate bitsets for each signature
+            EC::Meta::forEach<SigList>(
+            [this, &signatureBitsets] (auto signature) {
+                signatureBitsets[
+                        EC::Meta::IndexOf<decltype(signature), SigList>{} ] =
+                    BitsetType::template generateBitset<decltype(signature)>();
+            });
+
+            // find and store entities matching signatures
+            if(threadCount <= 1)
+            {
+                for(std::size_t eid = 0; eid < currentSize; ++eid)
+                {
+                    if(!isAlive(eid))
+                    {
+                        continue;
+                    }
+                    for(std::size_t i = 0; i < SigList::size; ++i)
+                    {
+                        if((signatureBitsets[i]
+                            & std::get<BitsetType>(entities[eid]))
+                                == signatureBitsets[i])
+                        {
+                            multiMatchingEntities[i].push_back(eid);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                std::vector<std::thread> threads(threadCount);
+                std::size_t s = currentSize / threadCount;
+                std::mutex sigsMutexes[SigList::size];
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    std::size_t begin = s * i;
+                    std::size_t end;
+                    if(i == threadCount - 1)
+                    {
+                        end = currentSize;
+                    }
+                    else
+                    {
+                        end = s * (i + 1);
+                    }
+                    threads[i] = std::thread(
+                    [this, &signatureBitsets, &multiMatchingEntities,
+                        &sigsMutexes]
+                    (std::size_t begin, std::size_t end) {
+                        for(std::size_t eid = begin; eid < end; ++eid)
+                        {
+                            if(!isAlive(eid))
+                            {
+                                continue;
+                            }
+                            for(std::size_t i = 0; i < SigList::size; ++i)
+                            {
+                                if((signatureBitsets[i]
+                                    & std::get<BitsetType>(entities[eid]))
+                                        == signatureBitsets[i])
+                                {
+                                    std::lock_guard<std::mutex> guard(
+                                        sigsMutexes[i]);
+                                    multiMatchingEntities[i].push_back(eid);
+
+                                }
+                            }
+                        }
+                    },
+                    begin, end);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i)
+                {
+                    threads[i].join();
+                }
+            }
+
+            // call functions on matching entities
+            EC::Meta::forEach<SigList>(
+            [this, &multiMatchingEntities, &funcTuple, &threadCount]
+            (auto signature) {
+                using SignatureComponents =
+                    typename EC::Meta::Matching<
+                        decltype(signature), ComponentsList>::type;
+                using Helper =
+                    EC::Meta::Morph<
+                        SignatureComponents,
+                        ForMatchingSignatureHelper<> >;
+                using Index = EC::Meta::IndexOf<decltype(signature),
+                    SigList>;
+                constexpr std::size_t index = Index{};
+                if(threadCount <= 1)
+                {
+                    for(auto iter = multiMatchingEntities[index].begin();
+                        iter != multiMatchingEntities[index].end(); ++iter)
+                    {
+                        Helper::callPtr(*iter, *this,
+                            std::get<index>(funcTuple));
+                    }
+                }
+                else
+                {
+                    std::vector<std::thread> threads(threadCount);
+                    std::size_t s = multiMatchingEntities[index].size()
+                        / threadCount;
+                    for(std::size_t i = 0; i < threadCount; ++i)
+                    {
+                        std::size_t begin = s * i;
+                        std::size_t end;
+                        if(i == threadCount - 1)
+                        {
+                            end = multiMatchingEntities[index].size();
+                        }
+                        else
+                        {
+                            end = s * (i + 1);
+                        }
+                        threads[i] = std::thread(
+                        [this, &multiMatchingEntities, &funcTuple]
+                        (std::size_t begin, std::size_t end)
+                        {
+                            for(std::size_t j = begin; j < end; ++j)
+                            {
+                                Helper::callPtr(multiMatchingEntities[index][j],
                                     *this, std::get<index>(funcTuple));
                             }
                         }, begin, end);
