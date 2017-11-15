@@ -789,6 +789,35 @@ TEST(EC, ForMatchingSignatures)
             EXPECT_EQ(13, manager.getEntityData<C0>(eid).y);
         }
     }
+
+    // test duplicate signatures
+    manager.forMatchingSignatures<TypeList<
+        TypeList<C0, C1>,
+        TypeList<C0, C1> > >(
+        std::make_tuple(
+            [] (std::size_t eid, C0& c0, C1& c1) {
+                c0.x = 9999;
+                c0.y = 9999;
+                c1.vx = 9999;
+                c1.vy = 9999;
+            },
+            [] (std::size_t eid, C0& c0, C1& c1) {
+                c0.x = 10000;
+                c0.y = 10000;
+                c1.vx = 10000;
+                c1.vy = 10000;
+            }
+    ));
+    for(auto id : e)
+    {
+        if(id != first && id != last)
+        {
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id).x);
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id).y);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vx);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vy);
+        }
+    };
 }
 
 TEST(EC, forMatchingPtrs)
@@ -899,5 +928,36 @@ TEST(EC, forMatchingPtrs)
             c.y = 0;
         }
     }
+
+    // test duplicate signatures
+    const auto setTo9999 = [] (std::size_t eid, C0& c0, C1& c1) {
+        c0.x = 9999;
+        c0.y = 9999;
+        c1.vx = 9999;
+        c1.vy = 9999;
+    };
+    const auto setTo10000 = [] (std::size_t eid, C0& c0, C1& c1) {
+        c0.x = 10000;
+        c0.y = 10000;
+        c1.vx = 10000;
+        c1.vy = 10000;
+    };
+    manager.forMatchingSignaturesPtr<TypeList<
+        TypeList<C0, C1>,
+        TypeList<C0, C1> > >(
+        std::make_tuple(
+            &setTo9999,
+            &setTo10000
+    ));
+    for(auto id : e)
+    {
+        if(id != first && id != last)
+        {
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id).x);
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id).y);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vx);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vy);
+        }
+    };
 }
 

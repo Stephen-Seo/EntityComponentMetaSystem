@@ -30,6 +30,8 @@
 
 #include "Meta/Combine.hpp"
 #include "Meta/Matching.hpp"
+#include "Meta/ForEachWithIndex.hpp"
+#include "Meta/ForEachDoubleTuple.hpp"
 #include "Bitset.hpp"
 
 namespace EC
@@ -1216,20 +1218,20 @@ namespace EC
             the order of entities called is not guaranteed. Otherwise entities
             will be called in consecutive order by their ID.
         */
-        template <typename SigList, typename FuncTuple>
-        void forMatchingSignatures(FuncTuple funcTuple,
-            std::size_t threadCount = 1)
+        template <typename SigList, typename FTuple>
+        void forMatchingSignatures(
+            FTuple fTuple, const std::size_t threadCount = 1)
         {
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
                 SigList::size);
             BitsetType signatureBitsets[SigList::size];
 
             // generate bitsets for each signature
-            EC::Meta::forEach<SigList>(
-            [this, &signatureBitsets] (auto signature) {
-                signatureBitsets[
-                        EC::Meta::IndexOf<decltype(signature), SigList>{} ] =
-                    BitsetType::template generateBitset<decltype(signature)>();
+            EC::Meta::forEachWithIndex<SigList>(
+            [this, &signatureBitsets] (auto signature, const auto index) {
+                signatureBitsets[index] =
+                    BitsetType::template generateBitset
+                        <decltype(signature)>();
             });
 
             // find and store entities matching signatures
@@ -1255,8 +1257,8 @@ namespace EC
             else
             {
                 std::vector<std::thread> threads(threadCount);
+                std::mutex mutexes[SigList::size];
                 std::size_t s = currentSize / threadCount;
-                std::mutex sigsMutexes[SigList::size];
                 for(std::size_t i = 0; i < threadCount; ++i)
                 {
                     std::size_t begin = s * i;
@@ -1270,94 +1272,94 @@ namespace EC
                         end = s * (i + 1);
                     }
                     threads[i] = std::thread(
-                    [this, &signatureBitsets, &multiMatchingEntities,
-                        &sigsMutexes]
-                    (std::size_t begin, std::size_t end) {
-                        for(std::size_t eid = begin; eid < end; ++eid)
+                    [this, &mutexes, &multiMatchingEntities, &signatureBitsets]
+                    (std::size_t begin, std::size_t end)
+                    {
+                        for(std::size_t j = begin; j < end; ++j)
                         {
-                            if(!isAlive(eid))
+                            if(!isAlive(j))
                             {
                                 continue;
                             }
-                            for(std::size_t i = 0; i < SigList::size; ++i)
+                            for(std::size_t k = 0; k < SigList::size; ++k)
                             {
-                                if((signatureBitsets[i]
-                                    & std::get<BitsetType>(entities[eid]))
-                                        == signatureBitsets[i])
+                                if((signatureBitsets[k]
+                                    & std::get<BitsetType>(entities[j]))
+                                        == signatureBitsets[k])
                                 {
                                     std::lock_guard<std::mutex> guard(
-                                        sigsMutexes[i]);
-                                    multiMatchingEntities[i].push_back(eid);
-
+                                        mutexes[k]);
+                                    multiMatchingEntities[k].push_back(j);
                                 }
                             }
                         }
-                    },
-                    begin, end);
+                    }, begin, end);
                 }
                 for(std::size_t i = 0; i < threadCount; ++i)
                 {
                     threads[i].join();
                 }
             }
-
+            
             // call functions on matching entities
-            EC::Meta::forEach<SigList>(
-            [this, &multiMatchingEntities, &funcTuple, &threadCount]
-            (auto signature) {
-                using SignatureComponents =
-                    typename EC::Meta::Matching<
-                        decltype(signature), ComponentsList>::type;
-                using Helper =
-                    EC::Meta::Morph<
-                        SignatureComponents,
-                        ForMatchingSignatureHelper<> >;
-                using Index = EC::Meta::IndexOf<decltype(signature),
-                    SigList>;
-                constexpr std::size_t index = Index{};
-                if(threadCount <= 1)
+            EC::Meta::forEachDoubleTuple(
+                EC::Meta::Morph<SigList, std::tuple<> >{},
+                fTuple,
+                [this, &multiMatchingEntities, &threadCount]
+                (auto sig, auto func, auto index)
                 {
-                    for(auto iter = multiMatchingEntities[index].begin();
-                        iter != multiMatchingEntities[index].end(); ++iter)
+                    using SignatureComponents =
+                        typename EC::Meta::Matching<
+                            decltype(sig), ComponentsList>::type;
+                    using Helper =
+                        EC::Meta::Morph<
+                            SignatureComponents,
+                            ForMatchingSignatureHelper<> >;
+                    if(threadCount <= 1)
                     {
-                        Helper::call(*iter, *this,
-                            std::get<index>(funcTuple));
+                        for(const auto& id : multiMatchingEntities[index])
+                        {
+                            Helper::call(id, *this, func);
+                        }
                     }
-                }
-                else
-                {
-                    std::vector<std::thread> threads(threadCount);
-                    std::size_t s = multiMatchingEntities[index].size()
-                        / threadCount;
-                    for(std::size_t i = 0; i < threadCount; ++i)
+                    else
                     {
-                        std::size_t begin = s * i;
-                        std::size_t end;
-                        if(i == threadCount - 1)
+                        std::vector<std::thread> threads(threadCount);
+                        std::size_t s = multiMatchingEntities[index].size()
+                            / threadCount;
+                        for(std::size_t i = 0; i < threadCount; ++i)
                         {
-                            end = multiMatchingEntities[index].size();
-                        }
-                        else
-                        {
-                            end = s * (i + 1);
-                        }
-                        threads[i] = std::thread(
-                        [this, &multiMatchingEntities, &funcTuple]
-                        (std::size_t begin, std::size_t end)
-                        {
-                            for(std::size_t j = begin; j < end; ++j)
+                            std::size_t begin = s * i;
+                            std::size_t end;
+                            if(i == threadCount - 1)
                             {
-                                Helper::call(multiMatchingEntities[index][j],
-                                    *this, std::get<index>(funcTuple));
+                                end = multiMatchingEntities[index].size();
                             }
-                        }, begin, end);
-                    }
-                    for(std::size_t i = 0; i < threadCount; ++i)
-                    {
-                        threads[i].join();
+                            else
+                            {
+                                end = s * (i + 1);
+                            }
+                            threads[i] = std::thread(
+                            [this, &multiMatchingEntities, &index, &func]
+                            (std::size_t begin, std::size_t end)
+                            {
+                                for(std::size_t j = begin; j < end;
+                                    ++j)
+                                {
+                                    Helper::call(
+                                        multiMatchingEntities[index][j],
+                                        *this,
+                                        func);
+                                }
+                            }, begin, end);
+                        }
+                        for(std::size_t i = 0; i < threadCount; ++i)
+                        {
+                            threads[i].join();
+                        }
                     }
                 }
-            });
+            );
         }
 
         /*!
@@ -1400,8 +1402,8 @@ namespace EC
             the order of entities called is not guaranteed. Otherwise entities
             will be called in consecutive order by their ID.
         */
-        template <typename SigList, typename FuncTuple>
-        void forMatchingSignaturesPtr(FuncTuple funcTuple,
+        template <typename SigList, typename FTuple>
+        void forMatchingSignaturesPtr(FTuple fTuple,
             std::size_t threadCount = 1)
         {
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
@@ -1409,11 +1411,11 @@ namespace EC
             BitsetType signatureBitsets[SigList::size];
 
             // generate bitsets for each signature
-            EC::Meta::forEach<SigList>(
-            [this, &signatureBitsets] (auto signature) {
-                signatureBitsets[
-                        EC::Meta::IndexOf<decltype(signature), SigList>{} ] =
-                    BitsetType::template generateBitset<decltype(signature)>();
+            EC::Meta::forEachWithIndex<SigList>(
+            [this, &signatureBitsets] (auto signature, const auto index) {
+                signatureBitsets[index] =
+                    BitsetType::template generateBitset
+                        <decltype(signature)>();
             });
 
             // find and store entities matching signatures
@@ -1439,8 +1441,8 @@ namespace EC
             else
             {
                 std::vector<std::thread> threads(threadCount);
+                std::mutex mutexes[SigList::size];
                 std::size_t s = currentSize / threadCount;
-                std::mutex sigsMutexes[SigList::size];
                 for(std::size_t i = 0; i < threadCount; ++i)
                 {
                     std::size_t begin = s * i;
@@ -1454,94 +1456,94 @@ namespace EC
                         end = s * (i + 1);
                     }
                     threads[i] = std::thread(
-                    [this, &signatureBitsets, &multiMatchingEntities,
-                        &sigsMutexes]
-                    (std::size_t begin, std::size_t end) {
-                        for(std::size_t eid = begin; eid < end; ++eid)
+                    [this, &mutexes, &multiMatchingEntities, &signatureBitsets]
+                    (std::size_t begin, std::size_t end)
+                    {
+                        for(std::size_t j = begin; j < end; ++j)
                         {
-                            if(!isAlive(eid))
+                            if(!isAlive(j))
                             {
                                 continue;
                             }
-                            for(std::size_t i = 0; i < SigList::size; ++i)
+                            for(std::size_t k = 0; k < SigList::size; ++k)
                             {
-                                if((signatureBitsets[i]
-                                    & std::get<BitsetType>(entities[eid]))
-                                        == signatureBitsets[i])
+                                if((signatureBitsets[k]
+                                    & std::get<BitsetType>(entities[j]))
+                                        == signatureBitsets[k])
                                 {
                                     std::lock_guard<std::mutex> guard(
-                                        sigsMutexes[i]);
-                                    multiMatchingEntities[i].push_back(eid);
-
+                                        mutexes[k]);
+                                    multiMatchingEntities[k].push_back(j);
                                 }
                             }
                         }
-                    },
-                    begin, end);
+                    }, begin, end);
                 }
                 for(std::size_t i = 0; i < threadCount; ++i)
                 {
                     threads[i].join();
                 }
             }
-
+            
             // call functions on matching entities
-            EC::Meta::forEach<SigList>(
-            [this, &multiMatchingEntities, &funcTuple, &threadCount]
-            (auto signature) {
-                using SignatureComponents =
-                    typename EC::Meta::Matching<
-                        decltype(signature), ComponentsList>::type;
-                using Helper =
-                    EC::Meta::Morph<
-                        SignatureComponents,
-                        ForMatchingSignatureHelper<> >;
-                using Index = EC::Meta::IndexOf<decltype(signature),
-                    SigList>;
-                constexpr std::size_t index = Index{};
-                if(threadCount <= 1)
+            EC::Meta::forEachDoubleTuple(
+                EC::Meta::Morph<SigList, std::tuple<> >{},
+                fTuple,
+                [this, &multiMatchingEntities, &threadCount]
+                (auto sig, auto func, auto index)
                 {
-                    for(auto iter = multiMatchingEntities[index].begin();
-                        iter != multiMatchingEntities[index].end(); ++iter)
+                    using SignatureComponents =
+                        typename EC::Meta::Matching<
+                            decltype(sig), ComponentsList>::type;
+                    using Helper =
+                        EC::Meta::Morph<
+                            SignatureComponents,
+                            ForMatchingSignatureHelper<> >;
+                    if(threadCount <= 1)
                     {
-                        Helper::callPtr(*iter, *this,
-                            std::get<index>(funcTuple));
+                        for(const auto& id : multiMatchingEntities[index])
+                        {
+                            Helper::callPtr(id, *this, func);
+                        }
                     }
-                }
-                else
-                {
-                    std::vector<std::thread> threads(threadCount);
-                    std::size_t s = multiMatchingEntities[index].size()
-                        / threadCount;
-                    for(std::size_t i = 0; i < threadCount; ++i)
+                    else
                     {
-                        std::size_t begin = s * i;
-                        std::size_t end;
-                        if(i == threadCount - 1)
+                        std::vector<std::thread> threads(threadCount);
+                        std::size_t s = multiMatchingEntities[index].size()
+                            / threadCount;
+                        for(std::size_t i = 0; i < threadCount; ++i)
                         {
-                            end = multiMatchingEntities[index].size();
-                        }
-                        else
-                        {
-                            end = s * (i + 1);
-                        }
-                        threads[i] = std::thread(
-                        [this, &multiMatchingEntities, &funcTuple]
-                        (std::size_t begin, std::size_t end)
-                        {
-                            for(std::size_t j = begin; j < end; ++j)
+                            std::size_t begin = s * i;
+                            std::size_t end;
+                            if(i == threadCount - 1)
                             {
-                                Helper::callPtr(multiMatchingEntities[index][j],
-                                    *this, std::get<index>(funcTuple));
+                                end = multiMatchingEntities[index].size();
                             }
-                        }, begin, end);
-                    }
-                    for(std::size_t i = 0; i < threadCount; ++i)
-                    {
-                        threads[i].join();
+                            else
+                            {
+                                end = s * (i + 1);
+                            }
+                            threads[i] = std::thread(
+                            [this, &multiMatchingEntities, &index, &func]
+                            (std::size_t begin, std::size_t end)
+                            {
+                                for(std::size_t j = begin; j < end;
+                                    ++j)
+                                {
+                                    Helper::callPtr(
+                                        multiMatchingEntities[index][j],
+                                        *this,
+                                        func);
+                                }
+                            }, begin, end);
+                        }
+                        for(std::size_t i = 0; i < threadCount; ++i)
+                        {
+                            threads[i].join();
+                        }
                     }
                 }
-            });
+            );
         }
 
         /*!

@@ -12,5 +12,7 @@
 #include "IndexOf.hpp"
 #include "Morph.hpp"
 #include "ForEach.hpp"
+#include "ForEachWithIndex.hpp"
+#include "ForEachDoubleTuple.hpp"
 #include "Matching.hpp"
 
