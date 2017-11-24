@@ -21,7 +21,6 @@
 #include <unordered_set>
 #include <algorithm>
 #include <thread>
-#include <queue>
 #include <mutex>
 
 #ifndef NDEBUG
@@ -331,13 +330,13 @@ namespace EC
             parameter is undefined as it is not used in that case.
         */
         using CleanupReturnType =
-            std::queue<std::tuple<bool, std::size_t, std::size_t> >;
+            std::vector<std::tuple<bool, std::size_t, std::size_t> >;
         CleanupReturnType cleanup()
         {
-            CleanupReturnType changedQueue;
+            CleanupReturnType changedVector;
             if(currentSize == 0)
             {
-                return changedQueue;
+                return changedVector;
             }
 
             std::size_t rhs = currentSize - 1;
@@ -350,9 +349,9 @@ namespace EC
                     if(rhs == 0)
                     {
                         currentSize = 0;
-                        return changedQueue;
+                        return changedVector;
                     }
-                    changedQueue.push(std::make_tuple(false, rhs, 0));
+                    changedVector.push_back(std::make_tuple(false, rhs, 0));
                     std::get<BitsetType>(entities[rhs]).reset();
                     --rhs;
                 }
@@ -365,8 +364,8 @@ namespace EC
                     // lhs is marked for deletion
 
                     // store deleted and changed id to queue
-                    changedQueue.push(std::make_tuple(false, lhs, 0));
-                    changedQueue.push(std::make_tuple(true, rhs, lhs));
+                    changedVector.push_back(std::make_tuple(false, lhs, 0));
+                    changedVector.push_back(std::make_tuple(true, rhs, lhs));
 
                     // swap lhs entity with rhs entity
                     std::swap(entities[lhs], entities.at(rhs));
@@ -384,7 +383,7 @@ namespace EC
             }
             currentSize = rhs + 1;
 
-            return changedQueue;
+            return changedVector;
         }
 
         /*!

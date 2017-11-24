@@ -443,11 +443,10 @@ TEST(EC, DeletedEntityID)
     manager.deleteEntity(e0);
     manager.deleteEntity(e1);
 
-    auto changedQueue = manager.cleanup();
+    auto changedVector = manager.cleanup();
 
-    while(!changedQueue.empty())
+    for(const auto& t : changedVector)
     {
-        auto t = changedQueue.front();
         if(std::get<1>(t) == 0)
         {
             EXPECT_FALSE(std::get<0>(t));
@@ -460,7 +459,6 @@ TEST(EC, DeletedEntityID)
         {
             EXPECT_TRUE(std::get<0>(t));
         }
-        changedQueue.pop();
     }
 
     EXPECT_FALSE(manager.hasEntity(2));
