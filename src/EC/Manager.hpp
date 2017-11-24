@@ -312,7 +312,7 @@ namespace EC
             <b>This function should be called periodically to correctly handle
             deletion of entities.</b>
 
-            The queue returned by this function lists all entities that have
+            The vector returned by this function lists all entities that have
             changed as a result of calling this function.
 
             The first parameter in the tuple (bool) is true if the entity has
@@ -363,7 +363,7 @@ namespace EC
                 {
                     // lhs is marked for deletion
 
-                    // store deleted and changed id to queue
+                    // store deleted and changed id
                     changedVector.push_back(std::make_tuple(false, lhs, 0));
                     changedVector.push_back(std::make_tuple(true, rhs, lhs));
 
