@@ -63,14 +63,15 @@ namespace EC
         };
         using ComponentsStorage =
             typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
-        // Entity: isAlive, dataIndex, ComponentsTags Info
-        using EntitiesTupleType = std::tuple<bool, std::size_t, BitsetType>;
+        // Entity: isAlive, ComponentsTags Info
+        using EntitiesTupleType = std::tuple<bool, BitsetType>;
         using EntitiesType = std::vector<EntitiesTupleType>;
 
         EntitiesType entities;
         ComponentsStorage componentsStorage;
         std::size_t currentCapacity = 0;
         std::size_t currentSize = 0;
+        std::unordered_set<std::size_t> deletedSet;
 
     public:
         /*!
@@ -100,7 +101,7 @@ namespace EC
             entities.resize(newCapacity);
             for(std::size_t i = currentCapacity; i < newCapacity; ++i)
             {
-                entities[i] = std::make_tuple(false, i, BitsetType{});
+                entities[i] = std::make_tuple(false, BitsetType{});
             }
 
             currentCapacity = newCapacity;
@@ -110,41 +111,58 @@ namespace EC
         /*!
             \brief Adds an entity to the system, returning the ID of the entity.
 
-            WARNING: The ID of an entity may change after calls to cleanup().
-            Usage of entity IDs should be safe during initialization.
-            Otherwise, only use the ID given during usage of
-            forMatchingSignature().
+            Note: The ID of an entity is guaranteed to not change.
         */
         std::size_t addEntity()
         {
-            if(currentSize == currentCapacity)
+            if(deletedSet.empty())
             {
-                resize(currentCapacity + EC_GROW_SIZE_AMOUNT);
+                if(currentSize == currentCapacity)
+                {
+                    resize(currentCapacity + EC_GROW_SIZE_AMOUNT);
+                }
+
+                std::get<bool>(entities[currentSize]) = true;
+                std::get<BitsetType>(entities[currentSize]).reset();
+
+                return currentSize++;
             }
-
-            std::get<bool>(entities[currentSize]) = true;
-
-            return currentSize++;
+            else
+            {
+                std::size_t id;
+                {
+                    auto iter = deletedSet.begin();
+                    id = *iter;
+                    deletedSet.erase(iter);
+                }
+                std::get<bool>(entities[id]) = true;
+                std::get<BitsetType>(entities[id]).reset();
+                return id;
+            }
         }
 
         /*!
             \brief Marks an entity for deletion.
 
-            A deleted Entity is not actually deleted until cleanup() is called.
-            While an Entity is "deleted" but still in the system, calls to
-            forMatchingSignature() will ignore the Entity.
+            A deleted Entity's id is stored to be reclaimed later when
+            addEntity is called. Thus calling addEntity may return an id of
+            a previously deleted Entity.
         */
         void deleteEntity(const std::size_t& index)
         {
-            std::get<bool>(entities.at(index)) = false;
+            if(hasEntity(index))
+            {
+                std::get<bool>(entities.at(index)) = false;
+                deletedSet.insert(index);
+            }
         }
 
 
         /*!
             \brief Checks if the Entity with the given ID is in the system.
 
-            Note that deleted Entities that haven't yet been cleaned up
-            (via cleanup()) are considered still in the system.
+            Note that deleted Entities are still considered in the system.
+            Consider using isAlive().
         */
         bool hasEntity(const std::size_t& index) const
         {
@@ -166,12 +184,12 @@ namespace EC
         /*!
             \brief Returns the current size or number of entities in the system.
 
-            Note that this size includes entities that have been marked for
-            deletion but not yet cleaned up by the cleanup function.
+            Note this function will only count entities where isAlive() returns
+            true.
         */
         std::size_t getCurrentSize() const
         {
-            return currentSize;
+            return currentSize - deletedSet.size();
         }
 
         /*
@@ -189,11 +207,10 @@ namespace EC
         /*!
             \brief Returns a const reference to an Entity's info.
 
-            An Entity's info is a std::tuple with a bool, std::size_t, and a
+            An Entity's info is a std::tuple with a bool, and a
             bitset.
 
             \n The bool determines if the Entity is alive.
-            \n The std::size_t is the ID to this Entity's data in the system.
             \n The bitset shows what Components and Tags belong to the Entity.
         */
         const EntitiesTupleType& getEntityInfo(const std::size_t& index) const
@@ -215,7 +232,7 @@ namespace EC
         Component& getEntityData(const std::size_t& index)
         {
             return std::get<std::vector<Component> >(componentsStorage).at(
-                std::get<std::size_t>(entities.at(index)));
+                index);
         }
 
         /*!
@@ -250,7 +267,7 @@ namespace EC
         const Component& getEntityData(const std::size_t& index) const
         {
             return std::get<std::vector<Component> >(componentsStorage).at(
-                std::get<std::size_t>(entities.at(index)));
+                index);
         }
 
         /*!
@@ -303,90 +320,6 @@ namespace EC
         }
 
         /*!
-            \brief Does garbage collection on Entities.
-
-            Does housekeeping on the vector containing Entities that will
-            result in entity IDs changing if some Entities were marked for
-            deletion.
-
-            <b>This function should be called periodically to correctly handle
-            deletion of entities.</b>
-
-            The vector returned by this function lists all entities that have
-            changed as a result of calling this function.
-
-            The first parameter in the tuple (bool) is true if the entity has
-            been relocated (entity id has changed) and is false if the entity
-            has been deleted.
-
-            The second parameter (size_t) is the original entity id of the
-            entity. If the previous parameter was false for deleted, then this
-            refers to the id of that deleted entity. If the previous parameter
-            was true for relocated, then this refers to the previous id of the
-            relocated entity
-
-            The third parameter (size_t) is the new entity id of the entity if
-            the entity was relocated. If the entity was deleted then this
-            parameter is undefined as it is not used in that case.
-        */
-        using CleanupReturnType =
-            std::vector<std::tuple<bool, std::size_t, std::size_t> >;
-        CleanupReturnType cleanup()
-        {
-            CleanupReturnType changedVector;
-            if(currentSize == 0)
-            {
-                return changedVector;
-            }
-
-            std::size_t rhs = currentSize - 1;
-            std::size_t lhs = 0;
-
-            while(lhs < rhs)
-            {
-                while(!std::get<bool>(entities[rhs]))
-                {
-                    if(rhs == 0)
-                    {
-                        currentSize = 0;
-                        return changedVector;
-                    }
-                    changedVector.push_back(std::make_tuple(false, rhs, 0));
-                    std::get<BitsetType>(entities[rhs]).reset();
-                    --rhs;
-                }
-                if(lhs >= rhs)
-                {
-                    break;
-                }
-                else if(!std::get<bool>(entities[lhs]))
-                {
-                    // lhs is marked for deletion
-
-                    // store deleted and changed id
-                    changedVector.push_back(std::make_tuple(false, lhs, 0));
-                    changedVector.push_back(std::make_tuple(true, rhs, lhs));
-
-                    // swap lhs entity with rhs entity
-                    std::swap(entities[lhs], entities.at(rhs));
-
-                    // clear deleted bitset
-                    std::get<BitsetType>(entities[rhs]).reset();
-
-                    // inc/dec pointers
-                    ++lhs; --rhs;
-                }
-                else
-                {
-                    ++lhs;
-                }
-            }
-            currentSize = rhs + 1;
-
-            return changedVector;
-        }
-
-        /*!
             \brief Adds a component to the given Entity.
 
             Additional parameters given to this function will construct the
@@ -415,7 +348,7 @@ namespace EC
         template <typename Component, typename... Args>
         void addComponent(const std::size_t& entityID, Args&&... args)
         {
-            if(!hasEntity(entityID) || !isAlive(entityID))
+            if(!isAlive(entityID))
             {
                 return;
             }
@@ -428,7 +361,7 @@ namespace EC
 
             std::get<std::vector<Component> >(
                 componentsStorage
-            )[std::get<std::size_t>(entities[entityID])] = std::move(component);
+            )[entityID] = std::move(component);
         }
 
         /*!
@@ -445,7 +378,7 @@ namespace EC
         template <typename Component>
         void removeComponent(const std::size_t& entityID)
         {
-            if(!hasEntity(entityID) || !isAlive(entityID))
+            if(!isAlive(entityID))
             {
                 return;
             }
@@ -466,7 +399,7 @@ namespace EC
         template <typename Tag>
         void addTag(const std::size_t& entityID)
         {
-            if(!hasEntity(entityID) || !isAlive(entityID))
+            if(!isAlive(entityID))
             {
                 return;
             }
@@ -489,7 +422,7 @@ namespace EC
         template <typename Tag>
         void removeTag(const std::size_t& entityID)
         {
-            if(!hasEntity(entityID) || !isAlive(entityID))
+            if(!isAlive(entityID))
             {
                 return;
             }
@@ -1558,6 +1491,7 @@ namespace EC
 
             currentSize = 0;
             currentCapacity = 0;
+            deletedSet.clear();
             resize(EC_INIT_ENTITIES_SIZE);
         }
     };

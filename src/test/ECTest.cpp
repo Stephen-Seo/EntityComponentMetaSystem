@@ -132,10 +132,6 @@ TEST(EC, Manager)
     }
 
     manager.deleteEntity(e0);
-    manager.cleanup();
-
-    std::size_t edata = std::get<std::size_t>(manager.getEntityInfo(0));
-    EXPECT_EQ(edata, 1);
 
     std::size_t e2 = manager.addEntity();
 
@@ -154,7 +150,6 @@ TEST(EC, Manager)
 
     manager.deleteEntity(e1);
     manager.deleteEntity(e2);
-    manager.cleanup();
 }
 
 TEST(EC, MoveComponentWithUniquePtr)
@@ -217,24 +212,13 @@ TEST(EC, DeletedEntities)
     {
         auto eid = manager.addEntity();
         manager.addComponent<C0>(eid);
-        if(i >= 2)
-        {
-            manager.deleteEntity(eid);
-        }
     }
-
-    manager.cleanup();
+    manager.deleteEntity(2);
+    manager.deleteEntity(3);
 
     for(unsigned int i = 0; i < 4; ++i)
     {
-        if(i < 2)
-        {
-            EXPECT_TRUE(manager.hasComponent<C0>(i));
-        }
-        else
-        {
-            EXPECT_FALSE(manager.hasComponent<C0>(i));
-        }
+        EXPECT_TRUE(manager.hasComponent<C0>(i));
     }
 
     for(unsigned int i = 0; i < 2; ++i)
@@ -393,44 +377,6 @@ TEST(EC, FunctionStorage)
     }
 }
 
-/*
-    This test demonstrates that while entity ids may change after cleanup,
-    pointers to their components do not.
-*/
-TEST(EC, DataPointers)
-{
-    EC::Manager<ListComponentsAll, ListTagsAll> manager;
-
-    auto first = manager.addEntity();
-    auto second = manager.addEntity();
-
-    manager.addComponent<C0>(first, 5, 5);
-    manager.addComponent<C0>(second, 10, 10);
-    manager.addTag<T0>(second);
-
-    auto* cptr = &manager.getEntityData<C0>(second);
-
-    EXPECT_EQ(10, cptr->x);
-    EXPECT_EQ(10, cptr->y);
-
-    manager.deleteEntity(first);
-    manager.cleanup();
-
-    auto newSecond = second;
-    manager.forMatchingSignature<EC::Meta::TypeList<T0>>(
-            [&newSecond] (auto eid) {
-        newSecond = eid;
-    });
-
-    EXPECT_NE(newSecond, second);
-
-    auto* newcptr = &manager.getEntityData<C0>(newSecond);
-    EXPECT_EQ(newcptr, cptr);
-
-    EXPECT_EQ(10, newcptr->x);
-    EXPECT_EQ(10, newcptr->y);
-}
-
 TEST(EC, DeletedEntityID)
 {
     EC::Manager<ListComponentsAll, ListTagsAll> manager;
@@ -443,28 +389,10 @@ TEST(EC, DeletedEntityID)
     manager.deleteEntity(e0);
     manager.deleteEntity(e1);
 
-    auto changedVector = manager.cleanup();
-
-    for(const auto& t : changedVector)
-    {
-        if(std::get<1>(t) == 0)
-        {
-            EXPECT_FALSE(std::get<0>(t));
-        }
-        else if(std::get<1>(t) == 1)
-        {
-            EXPECT_FALSE(std::get<0>(t));
-        }
-        else
-        {
-            EXPECT_TRUE(std::get<0>(t));
-        }
-    }
-
-    EXPECT_FALSE(manager.hasEntity(2));
-    EXPECT_FALSE(manager.hasEntity(3));
-    EXPECT_TRUE(manager.hasEntity(0));
-    EXPECT_TRUE(manager.hasEntity(1));
+    EXPECT_FALSE(manager.isAlive(e0));
+    EXPECT_FALSE(manager.isAlive(e1));
+    EXPECT_TRUE(manager.isAlive(e2));
+    EXPECT_TRUE(manager.isAlive(e3));
 }
 
 TEST(EC, MultiThreaded)
@@ -497,7 +425,6 @@ TEST(EC, MultiThreaded)
     {
         manager.deleteEntity(i);
     }
-    manager.cleanup();
 
     for(unsigned int i = 0; i < 3; ++i)
     {
@@ -563,7 +490,6 @@ TEST(EC, MultiThreaded)
     {
         manager.deleteEntity(i);
     }
-    manager.cleanup();
 
     manager.callForMatchingFunction(f0, 8);
 
