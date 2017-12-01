@@ -123,7 +123,6 @@ namespace EC
                 }
 
                 std::get<bool>(entities[currentSize]) = true;
-                std::get<BitsetType>(entities[currentSize]).reset();
 
                 return currentSize++;
             }
@@ -136,7 +135,6 @@ namespace EC
                     deletedSet.erase(iter);
                 }
                 std::get<bool>(entities[id]) = true;
-                std::get<BitsetType>(entities[id]).reset();
                 return id;
             }
         }
@@ -153,6 +151,7 @@ namespace EC
             if(hasEntity(index))
             {
                 std::get<bool>(entities.at(index)) = false;
+                std::get<BitsetType>(entities.at(index)).reset();
                 deletedSet.insert(index);
             }
         }
@@ -775,7 +774,10 @@ namespace EC
                     {
                         for(auto eid : matching)
                         {
-                            helper.callInstancePtr(eid, *this, &function);
+                            if(isAlive(eid))
+                            {
+                                helper.callInstancePtr(eid, *this, &function);
+                            }
                         }
                     }
                     else
@@ -800,7 +802,10 @@ namespace EC
                                     std::size_t end) {
                                 for(std::size_t i = begin; i < end; ++i)
                                 {
-                                    helper.callInstancePtr(i, *this, &function);
+                                    if(isAlive(i))
+                                    {
+                                        helper.callInstancePtr(i, *this, &function);
+                                    }
                                 }
                             },
                             begin, end);
@@ -1251,7 +1256,10 @@ namespace EC
                     {
                         for(const auto& id : multiMatchingEntities[index])
                         {
-                            Helper::call(id, *this, func);
+                            if(isAlive(id))
+                            {
+                                Helper::call(id, *this, func);
+                            }
                         }
                     }
                     else
@@ -1278,10 +1286,13 @@ namespace EC
                                 for(std::size_t j = begin; j < end;
                                     ++j)
                                 {
-                                    Helper::call(
-                                        multiMatchingEntities[index][j],
-                                        *this,
-                                        func);
+                                    if(isAlive(multiMatchingEntities[index][j]))
+                                    {
+                                        Helper::call(
+                                            multiMatchingEntities[index][j],
+                                            *this,
+                                            func);
+                                    }
                                 }
                             }, begin, end);
                         }
@@ -1435,7 +1446,10 @@ namespace EC
                     {
                         for(const auto& id : multiMatchingEntities[index])
                         {
-                            Helper::callPtr(id, *this, func);
+                            if(isAlive(id))
+                            {
+                                Helper::callPtr(id, *this, func);
+                            }
                         }
                     }
                     else
@@ -1462,10 +1476,13 @@ namespace EC
                                 for(std::size_t j = begin; j < end;
                                     ++j)
                                 {
-                                    Helper::callPtr(
-                                        multiMatchingEntities[index][j],
-                                        *this,
-                                        func);
+                                    if(isAlive(multiMatchingEntities[index][j]))
+                                    {
+                                        Helper::callPtr(
+                                            multiMatchingEntities[index][j],
+                                            *this,
+                                            func);
+                                    }
                                 }
                             }, begin, end);
                         }

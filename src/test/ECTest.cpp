@@ -218,7 +218,14 @@ TEST(EC, DeletedEntities)
 
     for(unsigned int i = 0; i < 4; ++i)
     {
-        EXPECT_TRUE(manager.hasComponent<C0>(i));
+        if(i < 2)
+        {
+            EXPECT_TRUE(manager.hasComponent<C0>(i));
+        }
+        else
+        {
+            EXPECT_FALSE(manager.hasComponent<C0>(i));
+        }
     }
 
     for(unsigned int i = 0; i < 2; ++i)
