@@ -52,6 +52,8 @@ namespace EC
     struct Manager
     {
     public:
+        using Components = ComponentsList;
+        using Tags = TagsList;
         using Combined = EC::Meta::Combine<ComponentsList, TagsList>;
         using BitsetType = EC::Bitset<ComponentsList, TagsList>;
 
