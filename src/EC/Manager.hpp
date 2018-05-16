@@ -1357,7 +1357,7 @@ namespace EC
 
             // generate bitsets for each signature
             EC::Meta::forEachWithIndex<SigList>(
-            [this, &signatureBitsets] (auto signature, const auto index) {
+            [&signatureBitsets] (auto signature, const auto index) {
                 signatureBitsets[index] =
                     BitsetType::template generateBitset
                         <decltype(signature)>();
