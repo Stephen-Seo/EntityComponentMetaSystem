@@ -96,18 +96,18 @@ TEST(EC, Manager)
     manager.addTag<T0>(e1);
 
     {
-        auto& vel = manager.getEntityData<C1>(e0);
-        vel.vx = 1;
-        vel.vy = 1;
+        auto* vel = manager.getEntityData<C1>(e0);
+        vel->vx = 1;
+        vel->vy = 1;
     }
 
-    auto posUpdate = [] (std::size_t id, C0& pos, C1& vel) {
-        pos.x += vel.vx;
-        pos.y += vel.vy;
+    auto posUpdate = [] (std::size_t id, C0* pos, C1* vel) {
+        pos->x += vel->vx;
+        pos->y += vel->vy;
     };
 
-    auto updateTag = [] (std::size_t id, C0& pos, C1& vel) {
-        pos.x = pos.y = vel.vx = vel.vy = 0;
+    auto updateTag = [] (std::size_t id, C0* pos, C1* vel) {
+        pos->x = pos->y = vel->vx = vel->vy = 0;
     };
 
     manager.forMatchingSignature<EC::Meta::TypeList<C0, C1> >(posUpdate);
@@ -116,9 +116,9 @@ TEST(EC, Manager)
     manager.forMatchingSignature<EC::Meta::TypeList<C0, C1, T0> >(updateTag);
 
     {
-        auto& pos = manager.getEntityData<C0>(e0);
-        EXPECT_EQ(pos.x, 7);
-        EXPECT_EQ(pos.y, 7);
+        auto* pos = manager.getEntityData<C0>(e0);
+        EXPECT_EQ(pos->x, 7);
+        EXPECT_EQ(pos->y, 7);
     }
 
     {
@@ -166,9 +166,10 @@ TEST(EC, MoveComponentWithUniquePtr)
 
         int x = 0;
         int y = 0;
-        manager.forMatchingSignature<EC::Meta::TypeList<C0Ptr> >([&x, &y] (std::size_t eID, C0Ptr& ptr) {
-            x = ptr->x;
-            y = ptr->y;
+        manager.forMatchingSignature<EC::Meta::TypeList<C0Ptr> >([&x, &y]
+                (std::size_t eID, C0Ptr* ptr) {
+            x = (*ptr)->x;
+            y = (*ptr)->y;
         });
         EXPECT_EQ(5, x);
         EXPECT_EQ(10, y);
@@ -185,8 +186,8 @@ TEST(EC, MoveComponentWithUniquePtr)
 
         int result = 0;
 
-        auto getResultFunction = [&result] (std::size_t eID, TestPtr& ptr) {
-            result = ptr->getInt();
+        auto getResultFunction = [&result] (std::size_t eID, TestPtr* ptr) {
+            result = (*ptr)->getInt();
         };
 
         manager.forMatchingSignature<EC::Meta::TypeList<TestPtr> >(getResultFunction);
@@ -244,32 +245,34 @@ TEST(EC, FunctionStorage)
     manager.addComponent<C2>(eid);
     manager.addComponent<C3>(eid);
 
-    auto f0index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>( [] (std::size_t eid, C0& c0) {
-        ++c0.x;
-        ++c0.y;
+    auto f0index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
+            [] (std::size_t eid, C0* c0) {
+        ++c0->x;
+        ++c0->y;
     });
 
-    auto f1index = manager.addForMatchingFunction<EC::Meta::TypeList<C0, C1>>( [] (std::size_t eid, C0& c0, C1& c1) {
-        c1.vx = c0.x + 10;
-        c1.vy = c1.vy + c1.vx + c0.y + 10;
+    auto f1index = manager.addForMatchingFunction<EC::Meta::TypeList<C0, C1>>(
+            [] (std::size_t eid, C0* c0, C1* c1) {
+        c1->vx = c0->x + 10;
+        c1->vy = c1->vy + c1->vx + c0->y + 10;
     });
 
     auto f2index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0& c0) {
-        c0.x = c0.y = 9999;
+            [] (std::size_t eid, C0* c0) {
+        c0->x = c0->y = 9999;
     });
 
     auto f3index = manager.addForMatchingFunction<EC::Meta::TypeList<C1>>(
-            [] (std::size_t eid, C1& c1) {
-        c1.vx = c1.vy = 10000;
+            [] (std::size_t eid, C1* c1) {
+        c1->vx = c1->vy = 10000;
     });
 
     EXPECT_EQ(2, manager.removeSomeMatchingFunctions({f2index, f3index}));
 
     auto f4index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0& c0) {
-        c0.x = 999;
-        c0.y = 888;
+            [] (std::size_t eid, C0* c0) {
+        c0->x = 999;
+        c0->y = 888;
     });
 
     {
@@ -278,9 +281,9 @@ TEST(EC, FunctionStorage)
     }
 
     auto f5index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0& c0) {
-        c0.x = 777;
-        c0.y = 666;
+            [] (std::size_t eid, C0* c0) {
+        c0->x = 777;
+        c0->y = 666;
     });
 
     auto lastIndex = f5index;
@@ -293,33 +296,33 @@ TEST(EC, FunctionStorage)
     manager.callForMatchingFunctions();
 
     {
-        auto c0 = manager.getEntityData<C0>(eid);
+        auto* c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(1, c0.x);
-        EXPECT_EQ(2, c0.y);
+        EXPECT_EQ(1, c0->x);
+        EXPECT_EQ(2, c0->y);
 
-        auto c1 = manager.getEntityData<C1>(eid);
+        auto* c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(11, c1.vx);
-        EXPECT_EQ(23, c1.vy);
+        EXPECT_EQ(11, c1->vx);
+        EXPECT_EQ(23, c1->vy);
     }
 
     EXPECT_TRUE(manager.callForMatchingFunction(f0index));
     EXPECT_FALSE(manager.callForMatchingFunction(lastIndex + 1));
 
     {
-        auto& c0 = manager.getEntityData<C0>(eid);
+        auto* c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(2, c0.x);
-        EXPECT_EQ(3, c0.y);
+        EXPECT_EQ(2, c0->x);
+        EXPECT_EQ(3, c0->y);
 
-        c0.x = 1;
-        c0.y = 2;
+        c0->x = 1;
+        c0->y = 2;
 
-        auto c1 = manager.getEntityData<C1>(eid);
+        auto* c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(11, c1.vx);
-        EXPECT_EQ(23, c1.vy);
+        EXPECT_EQ(11, c1->vx);
+        EXPECT_EQ(23, c1->vy);
     }
 
     EXPECT_EQ(1, manager.keepSomeMatchingFunctions({f1index}));
@@ -340,15 +343,15 @@ TEST(EC, FunctionStorage)
     manager.callForMatchingFunctions();
 
     {
-        auto c0 = manager.getEntityData<C0>(eid);
+        auto* c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(1, c0.x);
-        EXPECT_EQ(2, c0.y);
+        EXPECT_EQ(1, c0->x);
+        EXPECT_EQ(2, c0->y);
 
-        auto c1 = manager.getEntityData<C1>(eid);
+        auto* c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(11, c1.vx);
-        EXPECT_EQ(46, c1.vy);
+        EXPECT_EQ(11, c1->vx);
+        EXPECT_EQ(46, c1->vy);
     }
 
     EXPECT_TRUE(manager.removeForMatchingFunction(f1index));
@@ -357,30 +360,30 @@ TEST(EC, FunctionStorage)
     manager.callForMatchingFunctions();
 
     {
-        auto c0 = manager.getEntityData<C0>(eid);
+        auto* c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(1, c0.x);
-        EXPECT_EQ(2, c0.y);
+        EXPECT_EQ(1, c0->x);
+        EXPECT_EQ(2, c0->y);
 
-        auto c1 = manager.getEntityData<C1>(eid);
+        auto* c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(11, c1.vx);
-        EXPECT_EQ(46, c1.vy);
+        EXPECT_EQ(11, c1->vx);
+        EXPECT_EQ(46, c1->vy);
     }
 
     manager.clearForMatchingFunctions();
     manager.callForMatchingFunctions();
 
     {
-        auto c0 = manager.getEntityData<C0>(eid);
+        auto* c0 = manager.getEntityData<C0>(eid);
 
-        EXPECT_EQ(1, c0.x);
-        EXPECT_EQ(2, c0.y);
+        EXPECT_EQ(1, c0->x);
+        EXPECT_EQ(2, c0->y);
 
-        auto c1 = manager.getEntityData<C1>(eid);
+        auto* c1 = manager.getEntityData<C1>(eid);
 
-        EXPECT_EQ(11, c1.vx);
-        EXPECT_EQ(46, c1.vy);
+        EXPECT_EQ(11, c1->vx);
+        EXPECT_EQ(46, c1->vy);
     }
 }
 
@@ -410,22 +413,22 @@ TEST(EC, MultiThreaded)
     {
         manager.addEntity();
         manager.addComponent<C0>(i, 0, 0);
-        EXPECT_EQ(0, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(0, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i)->y);
     }
 
     manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0& c) {
-            c.x = 1;
-            c.y = 2;
+        [] (const std::size_t& eid, C0* c) {
+            c->x = 1;
+            c->y = 2;
         },
         2
     );
 
     for(unsigned int i = 0; i < 17; ++i)
     {
-        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(1, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i)->y);
     }
 
     for(unsigned int i = 3; i < 17; ++i)
@@ -435,22 +438,22 @@ TEST(EC, MultiThreaded)
 
     for(unsigned int i = 0; i < 3; ++i)
     {
-        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(1, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i)->y);
     }
 
     manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0& c) {
-            c.x = 3;
-            c.y = 4;
+        [] (const std::size_t& eid, C0* c) {
+            c->x = 3;
+            c->y = 4;
         },
         8
     );
 
     for(unsigned int i = 0; i < 3; ++i)
     {
-        EXPECT_EQ(3, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(4, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(3, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(4, manager.getEntityData<C0>(i)->y);
     }
 
     manager.reset();
@@ -459,14 +462,14 @@ TEST(EC, MultiThreaded)
     {
         manager.addEntity();
         manager.addComponent<C0>(i, 0, 0);
-        EXPECT_EQ(0, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(0, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(0, manager.getEntityData<C0>(i)->y);
     }
 
     auto f0 = manager.addForMatchingFunction<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0& c) {
-            c.x = 1;
-            c.y = 2;
+        [] (const std::size_t& eid, C0* c) {
+            c->x = 1;
+            c->y = 2;
         }
     );
 
@@ -474,14 +477,14 @@ TEST(EC, MultiThreaded)
 
     for(unsigned int i = 0; i < 17; ++i)
     {
-        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(1, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i)->y);
     }
 
     auto f1 = manager.addForMatchingFunction<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0& c) {
-            c.x = 3;
-            c.y = 4;
+        [] (const std::size_t& eid, C0* c) {
+            c->x = 3;
+            c->y = 4;
         }
     );
 
@@ -489,8 +492,8 @@ TEST(EC, MultiThreaded)
 
     for(unsigned int i = 0; i < 17; ++i)
     {
-        EXPECT_EQ(3, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(4, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(3, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(4, manager.getEntityData<C0>(i)->y);
     }
 
     for(unsigned int i = 4; i < 17; ++i)
@@ -502,16 +505,16 @@ TEST(EC, MultiThreaded)
 
     for(unsigned int i = 0; i < 4; ++i)
     {
-        EXPECT_EQ(1, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(2, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(1, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(2, manager.getEntityData<C0>(i)->y);
     }
 
     manager.callForMatchingFunction(f1, 8);
 
     for(unsigned int i = 0; i < 4; ++i)
     {
-        EXPECT_EQ(3, manager.getEntityData<C0>(i).x);
-        EXPECT_EQ(4, manager.getEntityData<C0>(i).y);
+        EXPECT_EQ(3, manager.getEntityData<C0>(i)->x);
+        EXPECT_EQ(4, manager.getEntityData<C0>(i)->y);
     }
 }
 
@@ -540,9 +543,9 @@ TEST(EC, ForMatchingSignatures)
             manager.addComponent<C1>(id);
             manager.addTag<T0>(id);
 
-            auto& c1 = manager.getEntityData<C1>(id);
-            c1.vx = 0;
-            c1.vy = 0;
+            auto* c1 = manager.getEntityData<C1>(id);
+            c1->vx = 0;
+            c1->vy = 0;
         }
         else
         {
@@ -556,21 +559,21 @@ TEST(EC, ForMatchingSignatures)
         TypeList<TypeList<C0>, TypeList<C0, C1> >
     >(
         std::make_tuple(
-        [] (std::size_t eid, C0& c) {
-            EXPECT_EQ(c.x, 0);
-            EXPECT_EQ(c.y, 0);
-            c.x = 1;
-            c.y = 1;
+        [] (std::size_t eid, C0* c) {
+            EXPECT_EQ(c->x, 0);
+            EXPECT_EQ(c->y, 0);
+            c->x = 1;
+            c->y = 1;
         },
-        [] (std::size_t eid, C0& c0, C1& c1) {
-            EXPECT_EQ(c0.x, 1);
-            EXPECT_EQ(c0.y, 1);
-            EXPECT_EQ(c1.vx, 0);
-            EXPECT_EQ(c1.vy, 0);
-            c1.vx = c0.x;
-            c1.vy = c0.y;
-            c0.x = 2;
-            c0.y = 2;
+        [] (std::size_t eid, C0* c0, C1* c1) {
+            EXPECT_EQ(c0->x, 1);
+            EXPECT_EQ(c0->y, 1);
+            EXPECT_EQ(c1->vx, 0);
+            EXPECT_EQ(c1->vy, 0);
+            c1->vx = c0->x;
+            c1->vy = c0->y;
+            c0->x = 2;
+            c0->y = 2;
         })
     );
 
@@ -578,15 +581,15 @@ TEST(EC, ForMatchingSignatures)
     {
         if(id != first && id != last)
         {
-            EXPECT_EQ(2, manager.getEntityData<C0>(id).x);
-            EXPECT_EQ(2, manager.getEntityData<C0>(id).y);
-            EXPECT_EQ(1, manager.getEntityData<C1>(id).vx);
-            EXPECT_EQ(1, manager.getEntityData<C1>(id).vy);
+            EXPECT_EQ(2, manager.getEntityData<C0>(id)->x);
+            EXPECT_EQ(2, manager.getEntityData<C0>(id)->y);
+            EXPECT_EQ(1, manager.getEntityData<C1>(id)->vx);
+            EXPECT_EQ(1, manager.getEntityData<C1>(id)->vy);
         }
         else
         {
-            EXPECT_EQ(1, manager.getEntityData<C0>(id).x);
-            EXPECT_EQ(1, manager.getEntityData<C0>(id).y);
+            EXPECT_EQ(1, manager.getEntityData<C0>(id)->x);
+            EXPECT_EQ(1, manager.getEntityData<C0>(id)->y);
         }
     }
 
@@ -609,58 +612,58 @@ TEST(EC, ForMatchingSignatures)
     >
     (
         std::make_tuple(
-        [&first, &last, &cx, &cy, &cxM, &cyM] (std::size_t eid, C0& c) {
+        [&first, &last, &cx, &cy, &cxM, &cyM] (std::size_t eid, C0* c) {
             if(eid != first && eid != last)
             {
                 {
                     std::lock_guard<std::mutex> guard(cxM);
-                    cx.insert(std::make_pair(eid, c.x));
+                    cx.insert(std::make_pair(eid, c->x));
                 }
                 {
                     std::lock_guard<std::mutex> guard(cyM);
-                    cy.insert(std::make_pair(eid, c.y));
+                    cy.insert(std::make_pair(eid, c->y));
                 }
-                c.x = 5;
-                c.y = 7;
+                c->x = 5;
+                c->y = 7;
             }
             else
             {
                 {
                     std::lock_guard<std::mutex> guard(cxM);
-                    cx.insert(std::make_pair(eid, c.x));
+                    cx.insert(std::make_pair(eid, c->x));
                 }
                 {
                     std::lock_guard<std::mutex> guard(cyM);
-                    cy.insert(std::make_pair(eid, c.y));
+                    cy.insert(std::make_pair(eid, c->y));
                 }
-                c.x = 11;
-                c.y = 13;
+                c->x = 11;
+                c->y = 13;
             }
         },
         [&c0x, &c0y, &c1vx, &c1vy, &c0xM, &c0yM, &c1vxM, &c1vyM]
-        (std::size_t eid, C0& c0, C1& c1) {
+        (std::size_t eid, C0* c0, C1* c1) {
             {
                 std::lock_guard<std::mutex> guard(c0xM);
-                c0x.insert(std::make_pair(eid, c0.x));
+                c0x.insert(std::make_pair(eid, c0->x));
             }
             {
                 std::lock_guard<std::mutex> guard(c0yM);
-                c0y.insert(std::make_pair(eid, c0.y));
+                c0y.insert(std::make_pair(eid, c0->y));
             }
             {
                 std::lock_guard<std::mutex> guard(c1vxM);
-                c1vx.insert(std::make_pair(eid, c1.vx));
+                c1vx.insert(std::make_pair(eid, c1->vx));
             }
             {
                 std::lock_guard<std::mutex> guard(c1vyM);
-                c1vy.insert(std::make_pair(eid, c1.vy));
+                c1vy.insert(std::make_pair(eid, c1->vy));
             }
 
-            c1.vx += c0.x;
-            c1.vy += c0.y;
+            c1->vx += c0->x;
+            c1->vy += c0->y;
 
-            c0.x = 1;
-            c0.y = 2;
+            c0->x = 1;
+            c0->y = 2;
         }),
         3
     );
@@ -709,15 +712,15 @@ TEST(EC, ForMatchingSignatures)
     {
         if(eid != first && eid != last)
         {
-            EXPECT_EQ(1, manager.getEntityData<C0>(eid).x);
-            EXPECT_EQ(2, manager.getEntityData<C0>(eid).y);
-            EXPECT_EQ(6, manager.getEntityData<C1>(eid).vx);
-            EXPECT_EQ(8, manager.getEntityData<C1>(eid).vy);
+            EXPECT_EQ(1, manager.getEntityData<C0>(eid)->x);
+            EXPECT_EQ(2, manager.getEntityData<C0>(eid)->y);
+            EXPECT_EQ(6, manager.getEntityData<C1>(eid)->vx);
+            EXPECT_EQ(8, manager.getEntityData<C1>(eid)->vy);
         }
         else
         {
-            EXPECT_EQ(11, manager.getEntityData<C0>(eid).x);
-            EXPECT_EQ(13, manager.getEntityData<C0>(eid).y);
+            EXPECT_EQ(11, manager.getEntityData<C0>(eid)->x);
+            EXPECT_EQ(13, manager.getEntityData<C0>(eid)->y);
         }
     }
 
@@ -726,27 +729,27 @@ TEST(EC, ForMatchingSignatures)
         TypeList<C0, C1>,
         TypeList<C0, C1> > >(
         std::make_tuple(
-            [] (std::size_t eid, C0& c0, C1& c1) {
-                c0.x = 9999;
-                c0.y = 9999;
-                c1.vx = 9999;
-                c1.vy = 9999;
+            [] (std::size_t eid, C0* c0, C1* c1) {
+                c0->x = 9999;
+                c0->y = 9999;
+                c1->vx = 9999;
+                c1->vy = 9999;
             },
-            [] (std::size_t eid, C0& c0, C1& c1) {
-                c0.x = 10000;
-                c0.y = 10000;
-                c1.vx = 10000;
-                c1.vy = 10000;
+            [] (std::size_t eid, C0* c0, C1* c1) {
+                c0->x = 10000;
+                c0->y = 10000;
+                c1->vx = 10000;
+                c1->vy = 10000;
             }
     ));
     for(auto id : e)
     {
         if(id != first && id != last)
         {
-            EXPECT_EQ(10000, manager.getEntityData<C0>(id).x);
-            EXPECT_EQ(10000, manager.getEntityData<C0>(id).y);
-            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vx);
-            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vy);
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id)->x);
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id)->y);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id)->vx);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id)->vy);
         }
     };
 }
@@ -782,17 +785,17 @@ TEST(EC, forMatchingPtrs)
         }
     }
 
-    const auto func0 = [] (std::size_t eid, C0& c0, C1& c1)
+    const auto func0 = [] (std::size_t eid, C0* c0, C1* c1)
     {
-        c0.x = 1;
-        c0.y = 2;
-        c1.vx = 3;
-        c1.vy = 4;
+        c0->x = 1;
+        c0->y = 2;
+        c1->vx = 3;
+        c1->vy = 4;
     };
-    const auto func1 = [] (std::size_t eid, C0& c0)
+    const auto func1 = [] (std::size_t eid, C0* c0)
     {
-        c0.x = 11;
-        c0.y = 12;
+        c0->x = 11;
+        c0->y = 12;
     };
 
     using namespace EC::Meta;
@@ -808,24 +811,24 @@ TEST(EC, forMatchingPtrs)
     {
         if(eid != first && eid != last)
         {
-            C0& c0 = manager.getEntityData<C0>(eid);
-            EXPECT_EQ(1, c0.x);
-            EXPECT_EQ(2, c0.y);
-            c0.x = 0;
-            c0.y = 0;
-            C1& c1 = manager.getEntityData<C1>(eid);
-            EXPECT_EQ(3, c1.vx);
-            EXPECT_EQ(4, c1.vy);
-            c1.vx = 0;
-            c1.vy = 0;
+            C0* c0 = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(1, c0->x);
+            EXPECT_EQ(2, c0->y);
+            c0->x = 0;
+            c0->y = 0;
+            C1* c1 = manager.getEntityData<C1>(eid);
+            EXPECT_EQ(3, c1->vx);
+            EXPECT_EQ(4, c1->vy);
+            c1->vx = 0;
+            c1->vy = 0;
         }
         else
         {
-            C0& c = manager.getEntityData<C0>(eid);
-            EXPECT_EQ(11, c.x);
-            EXPECT_EQ(12, c.y);
-            c.x = 0;
-            c.y = 0;
+            C0* c = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(11, c->x);
+            EXPECT_EQ(12, c->y);
+            c->x = 0;
+            c->y = 0;
         }
     }
 
@@ -839,39 +842,39 @@ TEST(EC, forMatchingPtrs)
     {
         if(eid != first && eid != last)
         {
-            C0& c0 = manager.getEntityData<C0>(eid);
-            EXPECT_EQ(1, c0.x);
-            EXPECT_EQ(2, c0.y);
-            c0.x = 0;
-            c0.y = 0;
-            C1& c1 = manager.getEntityData<C1>(eid);
-            EXPECT_EQ(3, c1.vx);
-            EXPECT_EQ(4, c1.vy);
-            c1.vx = 0;
-            c1.vy = 0;
+            C0* c0 = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(1, c0->x);
+            EXPECT_EQ(2, c0->y);
+            c0->x = 0;
+            c0->y = 0;
+            C1* c1 = manager.getEntityData<C1>(eid);
+            EXPECT_EQ(3, c1->vx);
+            EXPECT_EQ(4, c1->vy);
+            c1->vx = 0;
+            c1->vy = 0;
         }
         else
         {
-            C0& c = manager.getEntityData<C0>(eid);
-            EXPECT_EQ(11, c.x);
-            EXPECT_EQ(12, c.y);
-            c.x = 0;
-            c.y = 0;
+            C0* c = manager.getEntityData<C0>(eid);
+            EXPECT_EQ(11, c->x);
+            EXPECT_EQ(12, c->y);
+            c->x = 0;
+            c->y = 0;
         }
     }
 
     // test duplicate signatures
-    const auto setTo9999 = [] (std::size_t eid, C0& c0, C1& c1) {
-        c0.x = 9999;
-        c0.y = 9999;
-        c1.vx = 9999;
-        c1.vy = 9999;
+    const auto setTo9999 = [] (std::size_t eid, C0* c0, C1* c1) {
+        c0->x = 9999;
+        c0->y = 9999;
+        c1->vx = 9999;
+        c1->vy = 9999;
     };
-    const auto setTo10000 = [] (std::size_t eid, C0& c0, C1& c1) {
-        c0.x = 10000;
-        c0.y = 10000;
-        c1.vx = 10000;
-        c1.vy = 10000;
+    const auto setTo10000 = [] (std::size_t eid, C0* c0, C1* c1) {
+        c0->x = 10000;
+        c0->y = 10000;
+        c1->vx = 10000;
+        c1->vy = 10000;
     };
     manager.forMatchingSignaturesPtr<TypeList<
         TypeList<C0, C1>,
@@ -884,10 +887,10 @@ TEST(EC, forMatchingPtrs)
     {
         if(id != first && id != last)
         {
-            EXPECT_EQ(10000, manager.getEntityData<C0>(id).x);
-            EXPECT_EQ(10000, manager.getEntityData<C0>(id).y);
-            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vx);
-            EXPECT_EQ(10000, manager.getEntityData<C1>(id).vy);
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id)->x);
+            EXPECT_EQ(10000, manager.getEntityData<C0>(id)->y);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id)->vx);
+            EXPECT_EQ(10000, manager.getEntityData<C1>(id)->vy);
         }
     };
 }

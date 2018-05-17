@@ -16,34 +16,50 @@
 
 namespace EC
 {
+    // Note bitset size is sizes of components and tags + 1
+    // This is to use the last extra bit as the result of a query
+    // with a Component or Tag not known to the Bitset.
+    // Those queries will return a false bit every time.
     template <typename ComponentsList, typename TagsList>
     struct Bitset :
-        public std::bitset<ComponentsList::size + TagsList::size>
+        public std::bitset<ComponentsList::size + TagsList::size + 1>
     {
         using Combined = EC::Meta::Combine<ComponentsList, TagsList>;
 
+        Bitset()
+        {
+            (*this)[Combined::size] = false;
+        }
+
+        // TODO find a better way to handle non-member type in const
         template <typename Component>
         constexpr auto getComponentBit() const
         {
-            return (*this)[EC::Meta::IndexOf<Component, Combined>::value];
+            auto index = EC::Meta::IndexOf<Component, Combined>::value;
+            return (*this)[index];
         }
 
         template <typename Component>
         constexpr auto getComponentBit()
         {
-            return (*this)[EC::Meta::IndexOf<Component, Combined>::value];
+            auto index = EC::Meta::IndexOf<Component, Combined>::value;
+            (*this)[Combined::size] = false;
+            return (*this)[index];
         }
 
         template <typename Tag>
         constexpr auto getTagBit() const
         {
-            return (*this)[EC::Meta::IndexOf<Tag, Combined>::value];
+            auto index = EC::Meta::IndexOf<Tag, Combined>::value;
+            return (*this)[index];
         }
 
         template <typename Tag>
         constexpr auto getTagBit()
         {
-            return (*this)[EC::Meta::IndexOf<Tag, Combined>::value];
+            auto index = EC::Meta::IndexOf<Tag, Combined>::value;
+            (*this)[Combined::size] = false;
+            return (*this)[index];
         }
 
         template <typename Contents>

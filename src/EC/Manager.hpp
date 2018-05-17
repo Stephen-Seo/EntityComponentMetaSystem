@@ -31,6 +31,7 @@
 #include "Meta/Matching.hpp"
 #include "Meta/ForEachWithIndex.hpp"
 #include "Meta/ForEachDoubleTuple.hpp"
+#include "Meta/IndexOf.hpp"
 #include "Bitset.hpp"
 
 namespace EC
@@ -61,7 +62,7 @@ namespace EC
         template <typename... Types>
         struct Storage
         {
-            using type = std::tuple<std::vector<Types>... >;
+            using type = std::tuple<std::vector<Types>..., std::vector<char> >;
         };
         using ComponentsStorage =
             typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
@@ -230,10 +231,22 @@ namespace EC
             the Entity actually owns that Component.
         */
         template <typename Component>
-        Component& getEntityData(const std::size_t& index)
+        Component* getEntityData(const std::size_t& index)
         {
-            return std::get<std::vector<Component> >(componentsStorage).at(
-                index);
+            constexpr auto componentIndex = EC::Meta::IndexOf<
+                Component, Components>::value;
+            if(componentIndex < Components::size)
+            {
+                // Cast required due to compiler thinking that an invalid
+                // Component is needed even though the enclosing if statement
+                // prevents this from ever happening.
+                return (Component*) &std::get<componentIndex>(
+                    componentsStorage).at(index);
+            }
+            else
+            {
+                return nullptr;
+            }
         }
 
         /*!
@@ -249,7 +262,7 @@ namespace EC
             the Entity actually owns that Component.
         */
         template <typename Component>
-        Component& getEntityComponent(const std::size_t& index)
+        Component* getEntityComponent(const std::size_t& index)
         {
             return getEntityData<Component>(index);
         }
@@ -265,10 +278,22 @@ namespace EC
             to determine if the Entity actually owns that Component.
         */
         template <typename Component>
-        const Component& getEntityData(const std::size_t& index) const
+        const Component* getEntityData(const std::size_t& index) const
         {
-            return std::get<std::vector<Component> >(componentsStorage).at(
-                index);
+            constexpr auto componentIndex = EC::Meta::IndexOf<
+                Component, Components>::value;
+            if(componentIndex < Components::size)
+            {
+                // Cast required due to compiler thinking that an invalid
+                // Component is needed even though the enclosing if statement
+                // prevents this from ever happening.
+                return (Component*) &std::get<componentIndex>(
+                    componentsStorage).at(index);
+            }
+            else
+            {
+                return nullptr;
+            }
         }
 
         /*!
@@ -284,7 +309,7 @@ namespace EC
             to determine if the Entity actually owns that Component.
         */
         template <typename Component>
-        const Component& getEntityComponent(const std::size_t& index) const
+        const Component* getEntityComponent(const std::size_t& index) const
         {
             return getEntityData<Component>(index);
         }
@@ -349,7 +374,8 @@ namespace EC
         template <typename Component, typename... Args>
         void addComponent(const std::size_t& entityID, Args&&... args)
         {
-            if(!isAlive(entityID))
+            if(!isAlive(entityID)
+                || !EC::Meta::Contains<Component, Components>::value)
             {
                 return;
             }
@@ -360,9 +386,15 @@ namespace EC
                 entities[entityID]
             ).template getComponentBit<Component>() = true;
 
-            std::get<std::vector<Component> >(
+            constexpr auto index =
+                EC::Meta::IndexOf<Component, Components>::value;
+
+            // Cast required due to compiler thinking that vector<char> at
+            // index = Components::size is being used, even if the previous
+            // if statement will prevent this from ever happening.
+            (*((std::vector<Component>*)(&std::get<index>(
                 componentsStorage
-            )[entityID] = std::move(component);
+            ))))[entityID] = std::move(component);
         }
 
         /*!
@@ -400,7 +432,8 @@ namespace EC
         template <typename Tag>
         void addTag(const std::size_t& entityID)
         {
-            if(!isAlive(entityID))
+            if(!isAlive(entityID)
+                || !EC::Meta::Contains<Tag, Tags>::value)
             {
                 return;
             }

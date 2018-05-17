@@ -77,17 +77,21 @@ TEST(Meta, IndexOf)
     EXPECT_EQ(index, 2);
     index = EC::Meta::IndexOf<C3, ListComponentsAll>::value;
     EXPECT_EQ(index, 3);
+    index = EC::Meta::IndexOf<T0, ListComponentsAll>::value;
+    EXPECT_EQ(index, 4);
 
     index = EC::Meta::IndexOf<C1, ListComponentsSome>::value;
     EXPECT_EQ(index, 0);
     index = EC::Meta::IndexOf<C3, ListComponentsSome>::value;
     EXPECT_EQ(index, 1);
+    index = EC::Meta::IndexOf<C2, ListComponentsSome>::value;
+    EXPECT_EQ(index, 2);
 }
 
 TEST(Meta, Bitset)
 {
     EC::Bitset<ListComponentsAll, ListTagsAll> bitset;
-    EXPECT_EQ(bitset.size(), ListComponentsAll::size + ListTagsAll::size);
+    EXPECT_EQ(bitset.size(), ListComponentsAll::size + ListTagsAll::size + 1);
 
     bitset[EC::Meta::IndexOf<C1, ListComponentsAll>::value] = true;
     EXPECT_TRUE(bitset.getComponentBit<C1>());

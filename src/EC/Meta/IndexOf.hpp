@@ -4,6 +4,12 @@
 // His code is available here: https://github.com/SuperV1234/cppcon2015
 
 
+/*
+    Returns the index of a type in a type list.
+    If the type does not exist in the type list,
+    returns the size of the type list.
+*/
+
 #ifndef EC_META_INDEX_OF_HPP
 #define EC_META_INDEX_OF_HPP
 
@@ -14,7 +20,7 @@ namespace EC
     namespace Meta
     {
         template <typename T, typename... Types>
-        struct IndexOf
+        struct IndexOf : std::integral_constant<std::size_t, 0>
         {
         };
 
