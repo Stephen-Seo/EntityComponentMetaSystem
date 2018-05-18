@@ -221,14 +221,17 @@ namespace EC
         }
 
         /*!
-            \brief Returns a reference to a component belonging to the given
+            \brief Returns a pointer to a component belonging to the given
                 Entity.
 
-            This function will return a reference to a Component regardless of
-            whether or not the Entity actually owns the reference. If the Entity
+            This function will return a pointer to a Component regardless of
+            whether or not the Entity actually owns the Component. If the Entity
             doesn't own the Component, changes to the Component will not affect
             any Entity. It is recommended to use hasComponent() to determine if
             the Entity actually owns that Component.
+
+            If the given Component is unknown to the Manager, then this function
+            will return a nullptr.
         */
         template <typename Component>
         Component* getEntityData(const std::size_t& index)
@@ -250,16 +253,19 @@ namespace EC
         }
 
         /*!
-            \brief Returns a reference to a component belonging to the given
+            \brief Returns a pointer to a component belonging to the given
                 Entity.
 
             Note that this function is the same as getEntityData().
 
-            This function will return a reference to a Component regardless of
-            whether or not the Entity actually owns the reference. If the Entity
+            This function will return a pointer to a Component regardless of
+            whether or not the Entity actually owns the Component. If the Entity
             doesn't own the Component, changes to the Component will not affect
             any Entity. It is recommended to use hasComponent() to determine if
             the Entity actually owns that Component.
+
+            If the given Component is unknown to the Manager, then this function
+            will return a nullptr.
         */
         template <typename Component>
         Component* getEntityComponent(const std::size_t& index)
@@ -268,14 +274,17 @@ namespace EC
         }
 
         /*!
-            \brief Returns a const reference to a component belonging to the
+            \brief Returns a const pointer to a component belonging to the
                 given Entity.
 
-            This function will return a const reference to a Component
-            regardless of whether or not the Entity actually owns the reference.
+            This function will return a const pointer to a Component
+            regardless of whether or not the Entity actually owns the Component.
             If the Entity doesn't own the Component, changes to the Component
             will not affect any Entity. It is recommended to use hasComponent()
             to determine if the Entity actually owns that Component.
+
+            If the given Component is unknown to the Manager, then this function
+            will return a nullptr.
         */
         template <typename Component>
         const Component* getEntityData(const std::size_t& index) const
@@ -297,16 +306,19 @@ namespace EC
         }
 
         /*!
-            \brief Returns a const reference to a component belonging to the
+            \brief Returns a const pointer to a component belonging to the
                 given Entity.
 
             Note that this function is the same as getEntityData() (const).
 
-            This function will return a const reference to a Component
-            regardless of whether or not the Entity actually owns the reference.
+            This function will return a const pointer to a Component
+            regardless of whether or not the Entity actually owns the Component.
             If the Entity doesn't own the Component, changes to the Component
             will not affect any Entity. It is recommended to use hasComponent()
             to determine if the Entity actually owns that Component.
+
+            If the given Component is unknown to the Manager, then this function
+            will return a nullptr.
         */
         template <typename Component>
         const Component* getEntityComponent(const std::size_t& index) const
@@ -354,6 +366,9 @@ namespace EC
             Note that if the Entity already has the same component, then it
             will be overwritten by the newly created Component with the given
             arguments.
+
+            If the Entity is not alive or the given Component is not known to
+            the Manager, then nothing will change.
 
             Example:
             \code{.cpp}
@@ -525,7 +540,7 @@ namespace EC
                 Signature.
 
             The function object given to this function must accept std::size_t
-            as its first parameter and Component references for the rest of the
+            as its first parameter and Component pointers for the rest of the
             parameters. Tags specified in the Signature are only used as
             filters and will not be given as a parameter to the function.
 
@@ -540,7 +555,7 @@ namespace EC
             Example:
             \code{.cpp}
                 manager.forMatchingSignature<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0& component0, C1& component1) {
+                    std::size_t ID, C0* component0, C1* component1) {
                     // Lambda function contents here
                 },
                 4 // four threads
@@ -629,7 +644,7 @@ namespace EC
                 Signature.
 
             The function pointer given to this function must accept std::size_t
-            as its first parameter and Component references for the rest of the
+            as its first parameter and Component pointers for the rest of the
             parameters. Tags specified in the Signature are only used as
             filters and will not be given as a parameter to the function.
 
@@ -643,8 +658,8 @@ namespace EC
 
             Example:
             \code{.cpp}
-                auto function = [] (std::size_t ID, C0& component0,
-                    C1& component1) {
+                auto function = [] (std::size_t ID, C0* component0,
+                    C1* component1) {
                     // Lambda function contents here
                 };
                 manager.forMatchingSignaturePtr<TypeList<C0, C1, T0>>(
@@ -761,7 +776,7 @@ namespace EC
             Example:
             \code{.cpp}
                 manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0& component0, C1& component1) {
+                    std::size_t ID, C0* component0, C1* component1) {
                     // Lambda function contents here
                 });
 
@@ -944,7 +959,7 @@ namespace EC
             Example:
             \code{.cpp}
                 manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0& component0, C1& component1) {
+                    std::size_t ID, C0* component0, C1* component1) {
                     // Lambda function contents here
                 });
 
@@ -995,7 +1010,7 @@ namespace EC
             \code{.cpp}
                 std::size_t id =
                     manager.addForMatchingFunction<TypeList<C0, C1, T0>>(
-                        [] (std::size_t ID, C0& c0, C1& c1) {
+                        [] (std::size_t ID, C0* c0, C1* c1) {
                     // Lambda function contents here
                 });
 
@@ -1031,7 +1046,7 @@ namespace EC
             Example:
             \code{.cpp}
                 manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0& component0, C1& component1) {
+                    std::size_t ID, C0* component0, C1* component1) {
                     // Lambda function contents here
                 });
 
