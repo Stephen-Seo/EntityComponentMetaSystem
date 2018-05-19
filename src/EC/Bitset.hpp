@@ -19,7 +19,8 @@ namespace EC
     // Note bitset size is sizes of components and tags + 1
     // This is to use the last extra bit as the result of a query
     // with a Component or Tag not known to the Bitset.
-    // Those queries will return a false bit every time.
+    // Those queries should return a false bit every time as long as EC::Manager
+    // does not change that last bit.
     template <typename ComponentsList, typename TagsList>
     struct Bitset :
         public std::bitset<ComponentsList::size + TagsList::size + 1>
@@ -31,7 +32,6 @@ namespace EC
             (*this)[Combined::size] = false;
         }
 
-        // TODO find a better way to handle non-member type in const
         template <typename Component>
         constexpr auto getComponentBit() const
         {
@@ -43,7 +43,6 @@ namespace EC
         constexpr auto getComponentBit()
         {
             auto index = EC::Meta::IndexOf<Component, Combined>::value;
-            (*this)[Combined::size] = false;
             return (*this)[index];
         }
 
@@ -58,7 +57,6 @@ namespace EC
         constexpr auto getTagBit()
         {
             auto index = EC::Meta::IndexOf<Tag, Combined>::value;
-            (*this)[Combined::size] = false;
             return (*this)[index];
         }
 

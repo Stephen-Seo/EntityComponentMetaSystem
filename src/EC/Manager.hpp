@@ -389,8 +389,8 @@ namespace EC
         template <typename Component, typename... Args>
         void addComponent(const std::size_t& entityID, Args&&... args)
         {
-            if(!isAlive(entityID)
-                || !EC::Meta::Contains<Component, Components>::value)
+            if(!EC::Meta::Contains<Component, Components>::value
+                || !isAlive(entityID))
             {
                 return;
             }
@@ -426,7 +426,8 @@ namespace EC
         template <typename Component>
         void removeComponent(const std::size_t& entityID)
         {
-            if(!isAlive(entityID))
+            if(!EC::Meta::Contains<Component, Components>::value
+                || !isAlive(entityID))
             {
                 return;
             }
@@ -447,8 +448,8 @@ namespace EC
         template <typename Tag>
         void addTag(const std::size_t& entityID)
         {
-            if(!isAlive(entityID)
-                || !EC::Meta::Contains<Tag, Tags>::value)
+            if(!EC::Meta::Contains<Tag, Tags>::value
+                || !isAlive(entityID))
             {
                 return;
             }
@@ -471,7 +472,8 @@ namespace EC
         template <typename Tag>
         void removeTag(const std::size_t& entityID)
         {
-            if(!isAlive(entityID))
+            if(!EC::Meta::Contains<Tag, Tags>::value
+                || !isAlive(entityID))
             {
                 return;
             }
@@ -1215,7 +1217,7 @@ namespace EC
 
             // generate bitsets for each signature
             EC::Meta::forEachWithIndex<SigList>(
-            [this, &signatureBitsets] (auto signature, const auto index) {
+            [&signatureBitsets] (auto signature, const auto index) {
                 signatureBitsets[index] =
                     BitsetType::template generateBitset
                         <decltype(signature)>();
