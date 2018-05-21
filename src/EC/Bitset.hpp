@@ -66,7 +66,7 @@ namespace EC
             Bitset<ComponentsList, TagsList> bitset;
 
             EC::Meta::forEach<Contents>([&bitset] (auto t) {
-                if(EC::Meta::Contains<decltype(t), Combined>::value)
+                if constexpr (EC::Meta::Contains<decltype(t), Combined>::value)
                 {
                     bitset[EC::Meta::IndexOf<decltype(t), Combined>::value] =
                         true;

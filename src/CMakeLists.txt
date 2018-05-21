@@ -31,7 +31,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -D NDEBUG")
 
-target_compile_features(EntityComponentSystem INTERFACE cxx_std_14)
+target_compile_features(EntityComponentSystem INTERFACE cxx_std_17)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to 'Debug', none was specified.")
@@ -53,7 +53,7 @@ if(GTEST_FOUND)
     add_executable(UnitTests ${UnitTests_SOURCES})
     target_link_libraries(UnitTests EntityComponentSystem ${GTEST_LIBRARIES})
     target_include_directories(UnitTests PUBLIC ${GTEST_INCLUDE_DIR})
-    target_compile_features(UnitTests PUBLIC cxx_std_14)
+    target_compile_features(UnitTests PUBLIC cxx_std_17)
 
     enable_testing()
     add_test(NAME UnitTests COMMAND UnitTests)

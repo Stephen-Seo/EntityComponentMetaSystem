@@ -32,7 +32,6 @@
 #include "Meta/Matching.hpp"
 #include "Meta/ForEachWithIndex.hpp"
 #include "Meta/ForEachDoubleTuple.hpp"
-#include "Meta/IndexOf.hpp"
 #include "Bitset.hpp"
 
 namespace EC
@@ -67,7 +66,7 @@ namespace EC
         template <typename... Types>
         struct Storage
         {
-            using type = std::tuple<std::vector<Types>..., std::vector<char> >;
+            using type = std::tuple<std::vector<Types>...>;
         };
         using ComponentsStorage =
             typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
@@ -242,15 +241,10 @@ namespace EC
         template <typename Component>
         Component* getEntityData(const std::size_t& index)
         {
-            constexpr auto componentIndex = EC::Meta::IndexOf<
-                Component, Components>::value;
-            if(componentIndex < Components::size)
+            if constexpr (EC::Meta::Contains<Component, Components>::value)
             {
-                // Cast required due to compiler thinking that an invalid
-                // Component is needed even though the enclosing if statement
-                // prevents this from ever happening.
-                return (Component*) &std::get<componentIndex>(
-                    componentsStorage).at(index);
+                return &std::get<std::vector<Component> >(componentsStorage)
+                    .at(index);
             }
             else
             {
@@ -295,15 +289,10 @@ namespace EC
         template <typename Component>
         const Component* getEntityData(const std::size_t& index) const
         {
-            constexpr auto componentIndex = EC::Meta::IndexOf<
-                Component, Components>::value;
-            if(componentIndex < Components::size)
+            if constexpr (EC::Meta::Contains<Component, Components>::value)
             {
-                // Cast required due to compiler thinking that an invalid
-                // Component is needed even though the enclosing if statement
-                // prevents this from ever happening.
-                return (Component*) &std::get<componentIndex>(
-                    componentsStorage).at(index);
+                return &std::get<std::vector<Component> >(componentsStorage)
+                    .at(index);
             }
             else
             {
@@ -395,27 +384,25 @@ namespace EC
         template <typename Component, typename... Args>
         void addComponent(const std::size_t& entityID, Args&&... args)
         {
-            if(!EC::Meta::Contains<Component, Components>::value
-                || !isAlive(entityID))
+            if constexpr (!EC::Meta::Contains<Component, Components>::value)
             {
                 return;
             }
+            else
+            {
+                if(!isAlive(entityID))
+                {
+                    return;
+                }
+                Component component(std::forward<Args>(args)...);
 
-            Component component(std::forward<Args>(args)...);
+                std::get<BitsetType>(
+                    entities[entityID]
+                ).template getComponentBit<Component>() = true;
 
-            std::get<BitsetType>(
-                entities[entityID]
-            ).template getComponentBit<Component>() = true;
-
-            constexpr auto index =
-                EC::Meta::IndexOf<Component, Components>::value;
-
-            // Cast required due to compiler thinking that vector<char> at
-            // index = Components::size is being used, even if the previous
-            // if statement will prevent this from ever happening.
-            (*((std::vector<Component>*)(&std::get<index>(
-                componentsStorage
-            ))))[entityID] = std::move(component);
+                std::get<std::vector<Component> >(componentsStorage)[entityID]
+                    = std::move(component);
+            }
         }
 
         /*!
@@ -432,15 +419,20 @@ namespace EC
         template <typename Component>
         void removeComponent(const std::size_t& entityID)
         {
-            if(!EC::Meta::Contains<Component, Components>::value
-                || !isAlive(entityID))
+            if constexpr (!EC::Meta::Contains<Component, Components>::value)
             {
                 return;
             }
-
-            std::get<BitsetType>(
-                entities[entityID]
-            ).template getComponentBit<Component>() = false;
+            else
+            {
+                if(!isAlive(entityID))
+                {
+                    return;
+                }
+                std::get<BitsetType>(
+                    entities[entityID]
+                ).template getComponentBit<Component>() = false;
+            }
         }
 
         /*!
@@ -454,15 +446,20 @@ namespace EC
         template <typename Tag>
         void addTag(const std::size_t& entityID)
         {
-            if(!EC::Meta::Contains<Tag, Tags>::value
-                || !isAlive(entityID))
+            if constexpr (!EC::Meta::Contains<Tag, Tags>::value)
             {
                 return;
             }
-
-            std::get<BitsetType>(
-                entities[entityID]
-            ).template getTagBit<Tag>() = true;
+            else
+            {
+                if(!isAlive(entityID))
+                {
+                    return;
+                }
+                std::get<BitsetType>(
+                    entities[entityID]
+                ).template getTagBit<Tag>() = true;
+            }
         }
 
     /*!
@@ -478,15 +475,20 @@ namespace EC
         template <typename Tag>
         void removeTag(const std::size_t& entityID)
         {
-            if(!EC::Meta::Contains<Tag, Tags>::value
-                || !isAlive(entityID))
+            if constexpr (!EC::Meta::Contains<Tag, Tags>::value)
             {
                 return;
             }
-
-            std::get<BitsetType>(
-                entities[entityID]
-            ).template getTagBit<Tag>() = false;
+            else
+            {
+                if(!isAlive(entityID))
+                {
+                    return;
+                }
+                std::get<BitsetType>(
+                    entities[entityID]
+                ).template getTagBit<Tag>() = false;
+            }
         }
 
     private:
