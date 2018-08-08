@@ -58,6 +58,38 @@ struct Derived : public Base
 
 typedef std::unique_ptr<Base> TestPtr;
 
+struct Context
+{
+    int a, b;
+};
+
+void assignContextToC0(std::size_t /* id */, void* context, C0* c)
+{
+    Context* contextPtr = (Context*) context;
+    c->x = contextPtr->a;
+    c->y = contextPtr->b;
+}
+
+void assignC0ToContext(std::size_t /* id */, void* context, C0* c)
+{
+    Context* contextPtr = (Context*) context;
+    contextPtr->a = c->x;
+    contextPtr->b = c->y;
+}
+
+void setC0ToOneAndTwo(std::size_t /* id */, void* /* context */, C0* c)
+{
+    c->x = 1;
+    c->y = 2;
+}
+
+void setContextToThreeAndFour(std::size_t /* id */, void* context, C0* /* c */)
+{
+    Context* contextPtr = (Context*) context;
+    contextPtr->a = 3;
+    contextPtr->b = 4;
+}
+
 TEST(EC, Bitset)
 {
     {
@@ -101,12 +133,16 @@ TEST(EC, Manager)
         vel->vy = 1;
     }
 
-    auto posUpdate = [] (std::size_t id, C0* pos, C1* vel) {
+    auto posUpdate = []
+        (std::size_t /* id */, void* /* context */, C0* pos, C1* vel)
+    {
         pos->x += vel->vx;
         pos->y += vel->vy;
     };
 
-    auto updateTag = [] (std::size_t id, C0* pos, C1* vel) {
+    auto updateTag = []
+        (std::size_t /* id */, void* /* context */, C0* pos, C1* vel)
+    {
         pos->x = pos->y = vel->vx = vel->vy = 0;
     };
 
@@ -139,7 +175,7 @@ TEST(EC, Manager)
 
     std::size_t count = 0;
 
-    auto updateTagOnly = [&count] (std::size_t id) {
+    auto updateTagOnly = [&count] (std::size_t /* id */, void* /* context */) {
         std::cout << "UpdateTagOnly was run." << std::endl;
         ++count;
     };
@@ -167,7 +203,7 @@ TEST(EC, MoveComponentWithUniquePtr)
         int x = 0;
         int y = 0;
         manager.forMatchingSignature<EC::Meta::TypeList<C0Ptr> >([&x, &y]
-                (std::size_t eID, C0Ptr* ptr) {
+                (std::size_t /* id */, void* /* context */, C0Ptr* ptr) {
             x = (*ptr)->x;
             y = (*ptr)->y;
         });
@@ -186,7 +222,9 @@ TEST(EC, MoveComponentWithUniquePtr)
 
         int result = 0;
 
-        auto getResultFunction = [&result] (std::size_t eID, TestPtr* ptr) {
+        auto getResultFunction = [&result]
+            (std::size_t /* id */, void* /* context */, TestPtr* ptr)
+        {
             result = (*ptr)->getInt();
         };
 
@@ -246,31 +284,31 @@ TEST(EC, FunctionStorage)
     manager.addComponent<C3>(eid);
 
     auto f0index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0* c0) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0) {
         ++c0->x;
         ++c0->y;
     });
 
     auto f1index = manager.addForMatchingFunction<EC::Meta::TypeList<C0, C1>>(
-            [] (std::size_t eid, C0* c0, C1* c1) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0, C1* c1) {
         c1->vx = c0->x + 10;
         c1->vy = c1->vy + c1->vx + c0->y + 10;
     });
 
     auto f2index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0* c0) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0) {
         c0->x = c0->y = 9999;
     });
 
     auto f3index = manager.addForMatchingFunction<EC::Meta::TypeList<C1>>(
-            [] (std::size_t eid, C1* c1) {
+            [] (std::size_t /* id */, void* /* context */, C1* c1) {
         c1->vx = c1->vy = 10000;
     });
 
     EXPECT_EQ(2, manager.removeSomeMatchingFunctions({f2index, f3index}));
 
     auto f4index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0* c0) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0) {
         c0->x = 999;
         c0->y = 888;
     });
@@ -281,7 +319,7 @@ TEST(EC, FunctionStorage)
     }
 
     auto f5index = manager.addForMatchingFunction<EC::Meta::TypeList<C0>>(
-            [] (std::size_t eid, C0* c0) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0) {
         c0->x = 777;
         c0->y = 666;
     });
@@ -418,10 +456,11 @@ TEST(EC, MultiThreaded)
     }
 
     manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0* c) {
+        [] (const std::size_t& /* id */, void* /* context */, C0* c) {
             c->x = 1;
             c->y = 2;
         },
+        nullptr,
         2
     );
 
@@ -443,10 +482,11 @@ TEST(EC, MultiThreaded)
     }
 
     manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0* c) {
+        [] (const std::size_t& /* id */, void* /* context */, C0* c) {
             c->x = 3;
             c->y = 4;
         },
+        nullptr,
         8
     );
 
@@ -467,7 +507,7 @@ TEST(EC, MultiThreaded)
     }
 
     auto f0 = manager.addForMatchingFunction<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0* c) {
+        [] (const std::size_t& /* id */, void* /* context */, C0* c) {
             c->x = 1;
             c->y = 2;
         }
@@ -482,7 +522,7 @@ TEST(EC, MultiThreaded)
     }
 
     auto f1 = manager.addForMatchingFunction<EC::Meta::TypeList<C0> >(
-        [] (const std::size_t& eid, C0* c) {
+        [] (const std::size_t& /* id */, void* /* context */, C0* c) {
             c->x = 3;
             c->y = 4;
         }
@@ -559,13 +599,13 @@ TEST(EC, ForMatchingSignatures)
         TypeList<TypeList<C0>, TypeList<C0, C1> >
     >(
         std::make_tuple(
-        [] (std::size_t eid, C0* c) {
+        [] (std::size_t /* id */, void* /* context */, C0* c) {
             EXPECT_EQ(c->x, 0);
             EXPECT_EQ(c->y, 0);
             c->x = 1;
             c->y = 1;
         },
-        [] (std::size_t eid, C0* c0, C1* c1) {
+        [] (std::size_t /* id */, void* /* context */, C0* c0, C1* c1) {
             EXPECT_EQ(c0->x, 1);
             EXPECT_EQ(c0->y, 1);
             EXPECT_EQ(c1->vx, 0);
@@ -612,7 +652,8 @@ TEST(EC, ForMatchingSignatures)
     >
     (
         std::make_tuple(
-        [&first, &last, &cx, &cy, &cxM, &cyM] (std::size_t eid, C0* c) {
+        [&first, &last, &cx, &cy, &cxM, &cyM]
+        (std::size_t eid, void* /* context */, C0* c) {
             if(eid != first && eid != last)
             {
                 {
@@ -641,7 +682,7 @@ TEST(EC, ForMatchingSignatures)
             }
         },
         [&c0x, &c0y, &c1vx, &c1vy, &c0xM, &c0yM, &c1vxM, &c1vyM]
-        (std::size_t eid, C0* c0, C1* c1) {
+        (std::size_t eid, void* /* context */, C0* c0, C1* c1) {
             {
                 std::lock_guard<std::mutex> guard(c0xM);
                 c0x.insert(std::make_pair(eid, c0->x));
@@ -665,6 +706,7 @@ TEST(EC, ForMatchingSignatures)
             c0->x = 1;
             c0->y = 2;
         }),
+        nullptr,
         3
     );
     
@@ -729,13 +771,13 @@ TEST(EC, ForMatchingSignatures)
         TypeList<C0, C1>,
         TypeList<C0, C1> > >(
         std::make_tuple(
-            [] (std::size_t eid, C0* c0, C1* c1) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0, C1* c1) {
                 c0->x = 9999;
                 c0->y = 9999;
                 c1->vx = 9999;
                 c1->vy = 9999;
             },
-            [] (std::size_t eid, C0* c0, C1* c1) {
+            [] (std::size_t /* id */, void* /* context */, C0* c0, C1* c1) {
                 c0->x = 10000;
                 c0->y = 10000;
                 c1->vx = 10000;
@@ -785,14 +827,15 @@ TEST(EC, forMatchingPtrs)
         }
     }
 
-    const auto func0 = [] (std::size_t eid, C0* c0, C1* c1)
+    const auto func0 = []
+        (std::size_t /* id */, void* /* context */, C0* c0, C1* c1)
     {
         c0->x = 1;
         c0->y = 2;
         c1->vx = 3;
         c1->vy = 4;
     };
-    const auto func1 = [] (std::size_t eid, C0* c0)
+    const auto func1 = [] (std::size_t /* id */, void* /* context */, C0* c0)
     {
         c0->x = 11;
         c0->y = 12;
@@ -864,13 +907,17 @@ TEST(EC, forMatchingPtrs)
     }
 
     // test duplicate signatures
-    const auto setTo9999 = [] (std::size_t eid, C0* c0, C1* c1) {
+    const auto setTo9999 = []
+        (std::size_t /* id */, void* /* context */, C0* c0, C1* c1)
+    {
         c0->x = 9999;
         c0->y = 9999;
         c1->vx = 9999;
         c1->vy = 9999;
     };
-    const auto setTo10000 = [] (std::size_t eid, C0* c0, C1* c1) {
+    const auto setTo10000 = []
+        (std::size_t /* id */, void* /* context */, C0* c0, C1* c1)
+    {
         c0->x = 10000;
         c0->y = 10000;
         c1->vx = 10000;
@@ -895,3 +942,88 @@ TEST(EC, forMatchingPtrs)
     };
 }
 
+TEST(EC, context)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+    auto e0 = manager.addEntity();
+    auto e1 = manager.addEntity();
+
+    manager.addComponent<C0>(e0, 1, 2);
+    manager.addComponent<C0>(e1, 3, 4);
+
+    Context c;
+    c.a = 2000;
+    c.b = 5432;
+
+    EXPECT_EQ(1, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(2, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(3, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(4, manager.getEntityData<C0>(e1)->y);
+
+    manager.forMatchingSignature<EC::Meta::TypeList<C0>>(assignContextToC0, &c);
+
+    EXPECT_EQ(2000, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(5432, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(2000, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(5432, manager.getEntityData<C0>(e1)->y);
+
+    c.a = 1111;
+    c.b = 2222;
+
+    using C0TL = EC::Meta::TypeList<C0>;
+    manager.forMatchingSignatures<EC::Meta::TypeList<C0TL, C0TL, C0TL>>(
+        std::make_tuple(
+            setC0ToOneAndTwo, assignContextToC0, setContextToThreeAndFour),
+        &c);
+    EXPECT_EQ(1111, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(2222, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(1111, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(2222, manager.getEntityData<C0>(e1)->y);
+
+    EXPECT_EQ(3, c.a);
+    EXPECT_EQ(4, c.b);
+
+    manager.forMatchingSignaturesPtr<EC::Meta::TypeList<C0TL, C0TL>>(
+        std::make_tuple(
+            &setC0ToOneAndTwo, &assignC0ToContext),
+        &c);
+
+    EXPECT_EQ(1, c.a);
+    EXPECT_EQ(2, c.b);
+
+    EXPECT_EQ(1, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(2, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(1, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(2, manager.getEntityData<C0>(e1)->y);
+
+    c.a = 1980;
+    c.b = 1990;
+
+    auto fid = manager.addForMatchingFunction<C0TL>(assignContextToC0, &c);
+
+    manager.callForMatchingFunction(fid);
+    EXPECT_EQ(1980, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(1990, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(1980, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(1990, manager.getEntityData<C0>(e1)->y);
+
+    c.a = 2000;
+    c.b = 2010;
+
+    manager.callForMatchingFunctions();
+    EXPECT_EQ(2000, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(2010, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(2000, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(2010, manager.getEntityData<C0>(e1)->y);
+
+    Context altC;
+    altC.a = 999;
+    altC.b = 1999;
+
+    manager.changeForMatchingFunctionContext(fid, &altC);
+    manager.callForMatchingFunctions();
+    EXPECT_EQ(999, manager.getEntityData<C0>(e0)->x);
+    EXPECT_EQ(1999, manager.getEntityData<C0>(e0)->y);
+    EXPECT_EQ(999, manager.getEntityData<C0>(e1)->x);
+    EXPECT_EQ(1999, manager.getEntityData<C0>(e1)->y);
+}

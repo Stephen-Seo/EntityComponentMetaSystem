@@ -491,10 +491,12 @@ namespace EC
             static void call(
                 const std::size_t& entityID,
                 CType& ctype,
-                Function&& function)
+                Function&& function,
+                void* context = nullptr)
             {
                 function(
                     entityID,
+                    context,
                     ctype.template getEntityData<Types>(entityID)...
                 );
             }
@@ -503,10 +505,12 @@ namespace EC
             static void callPtr(
                 const std::size_t& entityID,
                 CType& ctype,
-                Function* function)
+                Function* function,
+                void* context = nullptr)
             {
                 (*function)(
                     entityID,
+                    context,
                     ctype.template getEntityData<Types>(entityID)...
                 );
             }
@@ -515,24 +519,28 @@ namespace EC
             void callInstance(
                 const std::size_t& entityID,
                 CType& ctype,
-                Function&& function) const
+                Function&& function,
+                void* context = nullptr) const
             {
                 ForMatchingSignatureHelper<Types...>::call(
                     entityID,
                     ctype,
-                    std::forward<Function>(function));
+                    std::forward<Function>(function),
+                    context);
             }
 
             template <typename CType, typename Function>
             void callInstancePtr(
                 const std::size_t& entityID,
                 CType& ctype,
-                Function* function) const
+                Function* function,
+                void* context = nullptr) const
             {
                 ForMatchingSignatureHelper<Types...>::callPtr(
                     entityID,
                     ctype,
-                    function);
+                    function,
+                    context);
             }
         };
 
@@ -542,24 +550,33 @@ namespace EC
                 Signature.
 
             The function object given to this function must accept std::size_t
-            as its first parameter and Component pointers for the rest of the
-            parameters. Tags specified in the Signature are only used as
-            filters and will not be given as a parameter to the function.
+            as its first parameter, void* as its second parameter, and Component
+            pointers for the rest of the parameters. Tags specified in the
+            Signature are only used as filters and will not be given as a
+            parameter to the function.
 
-            The second parameter is default 1 (not multi-threaded). If the
-            second parameter threadCount is set to a value greater than 1, then
-            threadCount threads will be used.
-            Note that multi-threading is based on splitting the task of calling
-            the function across sections of entities. Thus if there are only
-            a small amount of entities in the manager, then using multiple
-            threads may not have as great of a speed-up.
+            The second parameter is default nullptr and will be passed to the
+            function call as the second parameter as a means of providing
+            context (useful when the function is not a lambda function). The
+            third parameter is default 1 (not multi-threaded). If the third 
+            parameter threadCount is set to a value greater than 1, then
+            threadCount threads will be used.  Note that multi-threading is
+            based on splitting the task of calling the function across sections
+            of entities. Thus if there are only a small amount of entities in
+            the manager, then using multiple threads may not have as great of a
+            speed-up.
 
             Example:
             \code{.cpp}
-                manager.forMatchingSignature<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0* component0, C1* component1) {
+                Context c; // some class/struct with data
+                manager.forMatchingSignature<TypeList<C0, C1, T0>>([]
+                    (std::size_t ID,
+                    void* context,
+                    C0* component0, C1* component1)
+                {
                     // Lambda function contents here
                 },
+                &c, // "Context" object passed to the function
                 4 // four threads
                 );
             \endcode
@@ -568,6 +585,7 @@ namespace EC
         */
         template <typename Signature, typename Function>
         void forMatchingSignature(Function&& function,
+            void* context = nullptr,
             std::size_t threadCount = 1)
         {
             using SignatureComponents =
@@ -592,7 +610,7 @@ namespace EC
                         == signatureBitset)
                     {
                         Helper::call(i, *this,
-                            std::forward<Function>(function));
+                            std::forward<Function>(function), context);
                     }
                 }
             }
@@ -612,7 +630,8 @@ namespace EC
                     {
                         end = s * (i + 1);
                     }
-                    threads[i] = std::thread([this, &function, &signatureBitset]
+                    threads[i] = std::thread(
+                        [this, &function, &signatureBitset, &context]
                             (std::size_t begin,
                             std::size_t end) {
                         for(std::size_t i = begin; i < end; ++i)
@@ -627,7 +646,7 @@ namespace EC
                                 == signatureBitset)
                             {
                                 Helper::call(i, *this,
-                                    std::forward<Function>(function));
+                                    std::forward<Function>(function), context);
                             }
                         }
                     },
@@ -646,26 +665,35 @@ namespace EC
                 Signature.
 
             The function pointer given to this function must accept std::size_t
-            as its first parameter and Component pointers for the rest of the
-            parameters. Tags specified in the Signature are only used as
-            filters and will not be given as a parameter to the function.
+            as its first parameter, void* as its second parameter,  and
+            Component pointers for the rest of the parameters. Tags specified in
+            the Signature are only used as filters and will not be given as a
+            parameter to the function.
 
-            The second parameter is default 1 (not multi-threaded). If the
-            second parameter threadCount is set to a value greater than 1, then
-            threadCount threads will be used.
-            Note that multi-threading is based on splitting the task of calling
-            the function across sections of entities. Thus if there are only
-            a small amount of entities in the manager, then using multiple
-            threads may not have as great of a speed-up.
+            The second parameter is default nullptr and will be passed to the
+            function call as the second parameter as a means of providing
+            context (useful when the function is not a lambda function). The
+            third parameter is default 1 (not multi-threaded). If the third
+            parameter threadCount is set to a value greater than 1, then
+            threadCount threads will be used. Note that multi-threading is based
+            on splitting the task of calling the function across sections of
+            entities. Thus if there are only a small amount of entities in the
+            manager, then using multiple threads may not have as great of a
+            speed-up.
 
             Example:
             \code{.cpp}
-                auto function = [] (std::size_t ID, C0* component0,
-                    C1* component1) {
+                Context c; // some class/struct with data
+                auto function = []
+                    (std::size_t ID,
+                    void* context,
+                    C0* component0, C1* component1)
+                {
                     // Lambda function contents here
                 };
                 manager.forMatchingSignaturePtr<TypeList<C0, C1, T0>>(
                     &function, // ptr
+                    &c, // "Context" object passed to the function
                     4 // four threads
                 );
             \endcode
@@ -674,6 +702,7 @@ namespace EC
         */
         template <typename Signature, typename Function>
         void forMatchingSignaturePtr(Function* function,
+            void* context = nullptr,
             std::size_t threadCount = 1)
         {
             using SignatureComponents =
@@ -697,7 +726,7 @@ namespace EC
                     if((signatureBitset & std::get<BitsetType>(entities[i]))
                         == signatureBitset)
                     {
-                        Helper::callPtr(i, *this, function);
+                        Helper::callPtr(i, *this, function, context);
                     }
                 }
             }
@@ -717,7 +746,8 @@ namespace EC
                     {
                         end = s * (i + 1);
                     }
-                    threads[i] = std::thread([this, &function, &signatureBitset]
+                    threads[i] = std::thread(
+                        [this, &function, &signatureBitset, &context]
                             (std::size_t begin,
                             std::size_t end) {
                         for(std::size_t i = begin; i < end; ++i)
@@ -731,7 +761,7 @@ namespace EC
                                     & std::get<BitsetType>(entities[i]))
                                 == signatureBitset)
                             {
-                                Helper::callPtr(i, *this, function);
+                                Helper::callPtr(i, *this, function, context);
                             }
                         }
                     },
@@ -750,9 +780,11 @@ namespace EC
     private:
         std::unordered_map<std::size_t, std::tuple<
             BitsetType,
+            void*,
             std::function<void(
                 std::size_t,
-                std::vector<std::size_t>)> > >
+                std::vector<std::size_t>,
+                void*)> > >
             forMatchingFunctions;
         std::size_t functionIndex = 0;
 
@@ -775,10 +807,16 @@ namespace EC
             std::size_t). Calling clearForMatchingFunctions() will reset this
             counter to zero.
 
+            Note that the context pointer provided here (default nullptr) will
+            be provided to the stored function when called.
+
             Example:
             \code{.cpp}
-                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0* component0, C1* component1) {
+                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([]
+                    (std::size_t ID,
+                    void* context,
+                    C0* component0, C1* component1)
+                {
                     // Lambda function contents here
                 });
 
@@ -795,7 +833,9 @@ namespace EC
                 or calling with callForMatchingFunction().
         */
         template <typename Signature, typename Function>
-        std::size_t addForMatchingFunction(Function&& function)
+        std::size_t addForMatchingFunction(
+            Function&& function,
+            void* context = nullptr)
         {
             while(forMatchingFunctions.find(functionIndex)
                 != forMatchingFunctions.end())
@@ -818,9 +858,11 @@ namespace EC
                 functionIndex,
                 std::make_tuple(
                     signatureBitset,
+                    context,
                     [function, helper, this] 
-                    (std::size_t threadCount,
-                        std::vector<std::size_t> matching)
+                        (std::size_t threadCount,
+                        std::vector<std::size_t> matching,
+                        void* context)
                 {
                     if(threadCount <= 1)
                     {
@@ -828,7 +870,8 @@ namespace EC
                         {
                             if(isAlive(eid))
                             {
-                                helper.callInstancePtr(eid, *this, &function);
+                                helper.callInstancePtr(
+                                    eid, *this, &function, context);
                             }
                         }
                     }
@@ -849,14 +892,15 @@ namespace EC
                                 end = s * (i + 1);
                             }
                             threads[i] = std::thread(
-                                [this, &function, &helper]
+                                [this, &function, &helper, &context]
                                     (std::size_t begin,
                                     std::size_t end) {
                                 for(std::size_t i = begin; i < end; ++i)
                                 {
                                     if(isAlive(i))
                                     {
-                                        helper.callInstancePtr(i, *this, &function);
+                                        helper.callInstancePtr(
+                                            i, *this, &function, context);
                                     }
                                 }
                             },
@@ -950,8 +994,8 @@ namespace EC
         /*!
             \brief Call all stored functions.
 
-            A second parameter can be optionally used to specify the number
-            of threads to use when calling the functions. Otherwise, this
+            The first (and only) parameter can be optionally used to specify the
+            number of threads to use when calling the functions. Otherwise, this
             function is by default not multi-threaded.
             Note that multi-threading is based on splitting the task of calling
             the functions across sections of entities. Thus if there are only
@@ -960,8 +1004,10 @@ namespace EC
 
             Example:
             \code{.cpp}
-                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0* component0, C1* component1) {
+                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([]
+                    (std::size_t ID,
+                    void* context,
+                    C0* component0, C1* component1) {
                     // Lambda function contents here
                 });
 
@@ -993,7 +1039,8 @@ namespace EC
                 iter != forMatchingFunctions.end();
                 ++iter)
             {
-                std::get<1>(iter->second)(threadCount, matching[i++]);
+                std::get<2>(iter->second)(
+                    threadCount, matching[i++], std::get<1>(iter->second));
             }
         }
 
@@ -1012,7 +1059,7 @@ namespace EC
             \code{.cpp}
                 std::size_t id =
                     manager.addForMatchingFunction<TypeList<C0, C1, T0>>(
-                        [] (std::size_t ID, C0* c0, C1* c1) {
+                        [] (std::size_t ID, void* context, C0* c0, C1* c1) {
                     // Lambda function contents here
                 });
 
@@ -1036,7 +1083,8 @@ namespace EC
             std::vector<std::vector<std::size_t> > matching =
                 getMatchingEntities(std::vector<BitsetType*>{
                     &std::get<BitsetType>(iter->second)}, threadCount);
-            std::get<1>(iter->second)(threadCount, matching[0]);
+            std::get<2>(iter->second)(
+                threadCount, matching[0], std::get<1>(iter->second));
             return true;
         }
 
@@ -1047,8 +1095,11 @@ namespace EC
 
             Example:
             \code{.cpp}
-                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([] (
-                    std::size_t ID, C0* component0, C1* component1) {
+                manager.addForMatchingFunction<TypeList<C0, C1, T0>>([]
+                    (std::size_t ID,
+                    void* context,
+                    C0* component0, C1* component1)
+                {
                     // Lambda function contents here
                 });
 
@@ -1171,6 +1222,22 @@ namespace EC
         }
 
         /*!
+            \brief Sets the context pointer of a stored function
+
+            \return True if id is valid and context was updated
+        */
+        bool changeForMatchingFunctionContext(std::size_t id, void* context)
+        {
+            auto f = forMatchingFunctions.find(id);
+            if(f != forMatchingFunctions.end())
+            {
+                std::get<1>(f->second) = context;
+                return true;
+            }
+            return false;
+        }
+
+        /*!
             \brief Call multiple functions with mulitple signatures on all
                 living entities.
 
@@ -1191,6 +1258,9 @@ namespace EC
             See the Unit Test of this function in src/test/ECTest.cpp for
             usage examples.
 
+            The second parameter (default nullptr) will be provided to every
+            function call as a void* (context).
+
             This function was created for the use case where there are many
             entities in the system which can cause multiple calls to
             forMatchingSignature to be slow due to the overhead of iterating
@@ -1209,7 +1279,9 @@ namespace EC
         */
         template <typename SigList, typename FTuple>
         void forMatchingSignatures(
-            FTuple fTuple, const std::size_t threadCount = 1)
+            FTuple fTuple,
+            void* context = nullptr,
+            const std::size_t threadCount = 1)
         {
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
                 SigList::size);
@@ -1294,7 +1366,7 @@ namespace EC
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
                 fTuple,
-                [this, &multiMatchingEntities, &threadCount]
+                [this, &multiMatchingEntities, &threadCount, &context]
                 (auto sig, auto func, auto index)
                 {
                     using SignatureComponents =
@@ -1310,7 +1382,7 @@ namespace EC
                         {
                             if(isAlive(id))
                             {
-                                Helper::call(id, *this, func);
+                                Helper::call(id, *this, func, context);
                             }
                         }
                     }
@@ -1332,7 +1404,8 @@ namespace EC
                                 end = s * (i + 1);
                             }
                             threads[i] = std::thread(
-                            [this, &multiMatchingEntities, &index, &func]
+                            [this, &multiMatchingEntities, &index, &func,
+                                &context]
                             (std::size_t begin, std::size_t end)
                             {
                                 for(std::size_t j = begin; j < end;
@@ -1343,7 +1416,8 @@ namespace EC
                                         Helper::call(
                                             multiMatchingEntities[index][j],
                                             *this,
-                                            func);
+                                            func,
+                                            context);
                                     }
                                 }
                             }, begin, end);
@@ -1381,6 +1455,9 @@ namespace EC
             See the Unit Test of this function in src/test/ECTest.cpp for
             usage examples.
 
+            The second parameter (default nullptr) will be provided to every
+            function call as a void* (context).
+
             This function was created for the use case where there are many
             entities in the system which can cause multiple calls to
             forMatchingSignature to be slow due to the overhead of iterating
@@ -1399,6 +1476,7 @@ namespace EC
         */
         template <typename SigList, typename FTuple>
         void forMatchingSignaturesPtr(FTuple fTuple,
+            void* context = nullptr,
             std::size_t threadCount = 1)
         {
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
@@ -1484,7 +1562,7 @@ namespace EC
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
                 fTuple,
-                [this, &multiMatchingEntities, &threadCount]
+                [this, &multiMatchingEntities, &threadCount, &context]
                 (auto sig, auto func, auto index)
                 {
                     using SignatureComponents =
@@ -1500,7 +1578,7 @@ namespace EC
                         {
                             if(isAlive(id))
                             {
-                                Helper::callPtr(id, *this, func);
+                                Helper::callPtr(id, *this, func, context);
                             }
                         }
                     }
@@ -1522,7 +1600,8 @@ namespace EC
                                 end = s * (i + 1);
                             }
                             threads[i] = std::thread(
-                            [this, &multiMatchingEntities, &index, &func]
+                            [this, &multiMatchingEntities, &index, &func,
+                                &context]
                             (std::size_t begin, std::size_t end)
                             {
                                 for(std::size_t j = begin; j < end;
@@ -1533,7 +1612,8 @@ namespace EC
                                         Helper::callPtr(
                                             multiMatchingEntities[index][j],
                                             *this,
-                                            func);
+                                            func,
+                                            context);
                                     }
                                 }
                             }, begin, end);
