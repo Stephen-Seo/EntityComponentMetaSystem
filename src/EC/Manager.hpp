@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <thread>
 #include <mutex>
+#include <type_traits>
 
 #ifndef NDEBUG
   #include <iostream>
@@ -59,6 +60,10 @@ namespace EC
         using BitsetType = EC::Bitset<ComponentsList, TagsList>;
 
     private:
+        using ComponentsTuple = EC::Meta::Morph<ComponentsList, std::tuple<> >;
+        static_assert(std::is_default_constructible<ComponentsTuple>::value,
+            "All components must be default constructible");
+
         template <typename... Types>
         struct Storage
         {
@@ -66,6 +71,7 @@ namespace EC
         };
         using ComponentsStorage =
             typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
+
         // Entity: isAlive, ComponentsTags Info
         using EntitiesTupleType = std::tuple<bool, BitsetType>;
         using EntitiesType = std::vector<EntitiesTupleType>;

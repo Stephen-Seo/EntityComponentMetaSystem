@@ -16,6 +16,9 @@ set(EntityComponentSystem_HEADERS
     EC/Manager.hpp
     EC/EC.hpp)
 
+set(WillFailCompile_SOURCES
+    test/WillFailCompileTest.cpp)
+
 add_library(EntityComponentSystem INTERFACE)
 target_link_libraries(EntityComponentSystem INTERFACE pthread)
 target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -56,3 +59,11 @@ if(GTEST_FOUND)
     add_test(NAME UnitTests COMMAND UnitTests)
 endif()
 
+add_executable(WillFailCompile ${WillFailCompile_SOURCES})
+set_target_properties(WillFailCompile PROPERTIES
+    EXCLUDE_FROM_ALL True
+    EXCLUDE_FROM_DEFAULT_BUILD True)
+add_test(NAME WillFailCompile_0
+    COMMAND ${CMAKE_COMMAND} --build . --target WillFailCompile --config $<CONFIGURATION>
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_tests_properties(WillFailCompile_0 PROPERTIES WILL_FAIL True)
