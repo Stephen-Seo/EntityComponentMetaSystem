@@ -6,6 +6,7 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
+#include <vector>
 
 #include <EC/Meta/Meta.hpp>
 #include <EC/EC.hpp>
@@ -1026,4 +1027,50 @@ TEST(EC, context)
     EXPECT_EQ(1999, manager.getEntityData<C0>(e0)->y);
     EXPECT_EQ(999, manager.getEntityData<C0>(e1)->x);
     EXPECT_EQ(1999, manager.getEntityData<C0>(e1)->y);
+}
+
+TEST(EC, FunctionStorageOrder)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+    auto e0 = manager.addEntity();
+    manager.addComponent<C0>(e0, 1, 2);
+
+    std::vector<int> v;
+
+    using C0TL = EC::Meta::TypeList<C0>;
+
+    manager.addForMatchingFunction<C0TL>(
+        [&v] (std::size_t /* id */, void* /* context */, C0* c) {
+            v.push_back(c->x);
+            v.push_back(c->y);
+        });
+    manager.addForMatchingFunction<C0TL>(
+        [] (std::size_t /* id */, void* /* context */, C0* c) {
+            c->x += 2;
+            c->y += 2;
+        });
+    manager.addForMatchingFunction<C0TL>(
+        [&v] (std::size_t /* id */, void* /* context */, C0* c) {
+            v.push_back(c->x);
+            v.push_back(c->y);
+        });
+    manager.addForMatchingFunction<C0TL>(
+        [] (std::size_t /* id */, void* /* context */, C0* c) {
+            c->x += 2;
+            c->y += 2;
+        });
+    manager.addForMatchingFunction<C0TL>(
+        [&v] (std::size_t /* id */, void* /* context */, C0* c) {
+            v.push_back(c->x);
+            v.push_back(c->y);
+        });
+
+    manager.callForMatchingFunctions();
+
+    EXPECT_EQ(1, v.at(0));
+    EXPECT_EQ(2, v.at(1));
+    EXPECT_EQ(3, v.at(2));
+    EXPECT_EQ(4, v.at(3));
+    EXPECT_EQ(5, v.at(4));
+    EXPECT_EQ(6, v.at(5));
 }

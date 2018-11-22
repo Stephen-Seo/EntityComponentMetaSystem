@@ -784,7 +784,7 @@ namespace EC
 
 
     private:
-        std::unordered_map<std::size_t, std::tuple<
+        std::map<std::size_t, std::tuple<
             BitsetType,
             void*,
             std::function<void(
