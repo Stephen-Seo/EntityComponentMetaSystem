@@ -1649,6 +1649,73 @@ namespace EC
             deletedSet.clear();
             resize(EC_INIT_ENTITIES_SIZE);
         }
+
+        typedef void ForMatchingIterableFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
+
+        /*!
+         * \brief Similar to forMatchingSignature(), but with a collection of Component/Tag indices
+         *
+         * This function works like forMatchingSignature(), but instead of
+         * providing template types that filter out non-matching entities, an
+         * iterable of indices must be provided which correlate to matching
+         * Component/Tag indices. The function given must match the previously
+         * defined typedef of type ForMatchingIterableFn.
+         */
+        template <typename Iterable>
+        void forMatchingIterable(Iterable iterable, ForMatchingIterableFn fn, void* userPtr = nullptr, std::size_t threadCount = 1) {
+            if(threadCount <= 1) {
+                bool isValid;
+                for(std::size_t i = 0; i < currentSize; ++i) {
+                    if(!std::get<bool>(entities[i])) {
+                        continue;
+                    }
+
+                    isValid = true;
+                    for(const auto& integralValue : iterable) {
+                        if(!std::get<BitsetType>(entities[i]).getCombinedBit(integralValue)) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                    if(!isValid) { continue; }
+
+                    fn(i, this, userPtr);
+                }
+            } else {
+                std::vector<std::thread> threads(threadCount);
+                std::size_t s = currentSize / threadCount;
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    std::size_t begin = s * i;
+                    std::size_t end = i == threadCount - 1 ?
+                        currentSize :
+                        s * (i + 1);
+                    threads[i] = std::thread(
+                        [this, &fn, &iterable, userPtr] (std::size_t begin, std::size_t end) {
+                            bool isValid;
+                            for(std::size_t i = begin; i < end; ++i) {
+                                if(!std::get<bool>(this->entities[i])) {
+                                    continue;
+                                }
+
+                                isValid = true;
+                                for(const auto& integralValue : iterable) {
+                                    if(!std::get<BitsetType>(entities[i]).getCombinedBit(integralValue)) {
+                                        isValid = false;
+                                        break;
+                                    }
+                                }
+                                if(!isValid) { continue; }
+
+                                fn(i, this, userPtr);
+                            }
+                        },
+                    begin, end);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    threads[i].join();
+                }
+            }
+        }
     };
 }
 
