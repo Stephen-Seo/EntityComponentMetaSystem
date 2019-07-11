@@ -564,7 +564,7 @@ namespace EC
             The second parameter is default nullptr and will be passed to the
             function call as the second parameter as a means of providing
             context (useful when the function is not a lambda function). The
-            third parameter is default 1 (not multi-threaded). If the third 
+            third parameter is default 1 (not multi-threaded). If the third
             parameter threadCount is set to a value greater than 1, then
             threadCount threads will be used.  Note that multi-threading is
             based on splitting the task of calling the function across sections
@@ -865,7 +865,7 @@ namespace EC
                 std::make_tuple(
                     signatureBitset,
                     context,
-                    [function, helper, this] 
+                    [function, helper, this]
                         (std::size_t threadCount,
                         std::vector<std::size_t> matching,
                         void* context)
@@ -1367,7 +1367,7 @@ namespace EC
                     threads[i].join();
                 }
             }
-            
+
             // call functions on matching entities
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
@@ -1563,7 +1563,7 @@ namespace EC
                     threads[i].join();
                 }
             }
-            
+
             // call functions on matching entities
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
