@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <vector>
+#include <deque>
 #include <tuple>
 #include <utility>
 #include <functional>
@@ -67,14 +68,14 @@ namespace EC
         template <typename... Types>
         struct Storage
         {
-            using type = std::tuple<std::vector<Types>..., std::vector<char> >;
+            using type = std::tuple<std::deque<Types>..., std::deque<char> >;
         };
         using ComponentsStorage =
             typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
 
         // Entity: isAlive, ComponentsTags Info
         using EntitiesTupleType = std::tuple<bool, BitsetType>;
-        using EntitiesType = std::vector<EntitiesTupleType>;
+        using EntitiesType = std::deque<EntitiesTupleType>;
 
         EntitiesType entities;
         ComponentsStorage componentsStorage;
@@ -103,7 +104,7 @@ namespace EC
             }
 
             EC::Meta::forEach<ComponentsList>([this, newCapacity] (auto t) {
-                std::get<std::vector<decltype(t)> >(
+                std::get<std::deque<decltype(t)> >(
                     this->componentsStorage).resize(newCapacity);
             });
 
@@ -410,10 +411,10 @@ namespace EC
             constexpr auto index =
                 EC::Meta::IndexOf<Component, Components>::value;
 
-            // Cast required due to compiler thinking that vector<char> at
+            // Cast required due to compiler thinking that deque<char> at
             // index = Components::size is being used, even if the previous
             // if statement will prevent this from ever happening.
-            (*((std::vector<Component>*)(&std::get<index>(
+            (*((std::deque<Component>*)(&std::get<index>(
                 componentsStorage
             ))))[entityID] = std::move(component);
         }
