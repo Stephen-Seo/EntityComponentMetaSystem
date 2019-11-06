@@ -1077,6 +1077,72 @@ TEST(EC, FunctionStorageOrder)
     EXPECT_EQ(6, v.at(5));
 }
 
+TEST(EC, forMatchingSimple) {
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    auto e0 = manager.addEntity();
+    manager.addComponent<C0>(e0, 0, 1);
+
+    auto e1 = manager.addEntity();
+    manager.addComponent<C0>(e1, 2, 3);
+    manager.addTag<T0>(e1);
+
+    auto e2 = manager.addEntity();
+    manager.addComponent<C0>(e2, 4, 5);
+    manager.addTag<T0>(e2);
+    manager.addTag<T1>(e2);
+
+    // add 10 to C0 components
+    manager.forMatchingSimple<EC::Meta::TypeList<C0>>(
+        [] (std::size_t id, decltype(manager) *manager, void *) {
+            C0 *c0 = manager->getEntityData<C0>(id);
+            c0->x += 10;
+            c0->y += 10;
+        }, nullptr, 3);
+
+    // verify
+    {
+        C0 *c0 = manager.getEntityData<C0>(e0);
+        EXPECT_EQ(c0->x, 10);
+        EXPECT_EQ(c0->y, 11);
+        c0 = manager.getEntityData<C0>(e1);
+        EXPECT_EQ(c0->x, 12);
+        EXPECT_EQ(c0->y, 13);
+        c0 = manager.getEntityData<C0>(e2);
+        EXPECT_EQ(c0->x, 14);
+        EXPECT_EQ(c0->y, 15);
+    }
+
+    auto e3 = manager.addEntity();
+    manager.addComponent<C0>(e3, 6, 7);
+    manager.addTag<T0>(e3);
+    manager.addTag<T1>(e3);
+
+    // add 100 to entities with C0,T1
+    manager.forMatchingSimple<EC::Meta::TypeList<C0, T1>>(
+        [] (std::size_t id, decltype(manager) *manager, void *) {
+            C0 *c0 = manager->getEntityData<C0>(id);
+            c0->x += 100;
+            c0->y += 100;
+        });
+
+    // verify
+    {
+        C0 *c0 = manager.getEntityData<C0>(e0);
+        EXPECT_EQ(c0->x, 10);
+        EXPECT_EQ(c0->y, 11);
+        c0 = manager.getEntityData<C0>(e1);
+        EXPECT_EQ(c0->x, 12);
+        EXPECT_EQ(c0->y, 13);
+        c0 = manager.getEntityData<C0>(e2);
+        EXPECT_EQ(c0->x, 114);
+        EXPECT_EQ(c0->y, 115);
+        c0 = manager.getEntityData<C0>(e3);
+        EXPECT_EQ(c0->x, 106);
+        EXPECT_EQ(c0->y, 107);
+    }
+}
+
 TEST(EC, forMatchingIterableFn)
 {
     EC::Manager<ListComponentsAll, ListTagsAll> manager;

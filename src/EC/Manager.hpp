@@ -490,6 +490,23 @@ namespace EC
             ).template getTagBit<Tag>() = false;
         }
 
+        /*!
+            \brief Resets the Manager, removing all entities.
+
+            Some data may persist but will be overwritten when new entities
+            are added. Thus, do not depend on data to persist after a call to
+            reset().
+        */
+        void reset()
+        {
+            clearForMatchingFunctions();
+
+            currentSize = 0;
+            currentCapacity = 0;
+            deletedSet.clear();
+            resize(EC_INIT_ENTITIES_SIZE);
+        }
+
     private:
         template <typename... Types>
         struct ForMatchingSignatureHelper
@@ -1634,36 +1651,73 @@ namespace EC
             );
         }
 
+        typedef void ForMatchingFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
+
         /*!
-            \brief Resets the Manager, removing all entities.
-
-            Some data may persist but will be overwritten when new entities
-            are added. Thus, do not depend on data to persist after a call to
-            reset().
-        */
-        void reset()
-        {
-            clearForMatchingFunctions();
-
-            currentSize = 0;
-            currentCapacity = 0;
-            deletedSet.clear();
-            resize(EC_INIT_ENTITIES_SIZE);
+         * \brief A simple version of forMatchingSignature()
+         *
+         * This function behaves like forMatchingSignature(), but instead of
+         * providing a function with each requested component as a parameter,
+         * the function receives a pointer to the manager itself, with which to
+         * query component/tag data.
+         */
+        template <typename Signature>
+        void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, std::size_t threadCount = 1) {
+            const BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
+            if(threadCount <= 1) {
+                for(std::size_t i = 0; i < currentSize; ++i) {
+                    if(!std::get<bool>(entities[i])) {
+                        continue;
+                    } else if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset) {
+                        fn(i, this, userData);
+                    }
+                }
+            } else {
+                std::vector<std::thread> threads(threadCount);
+                const std::size_t s = currentSize / threadCount;
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    const std::size_t begin = s * i;
+                    const std::size_t end =
+                        i == threadCount - 1 ?
+                            currentSize :
+                            s * (i + 1);
+                    threads[i] = std::thread(
+                        [this] (const std::size_t begin,
+                                const std::size_t end,
+                                const BitsetType signatureBitset,
+                                ForMatchingFn fn,
+                                void *userData) {
+                            for(std::size_t i = begin; i < end; ++i) {
+                                if(!std::get<bool>(entities[i])) {
+                                    continue;
+                                } else if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset) {
+                                    fn(i, this, userData);
+                                }
+                            }
+                        },
+                        begin,
+                        end,
+                        signatureBitset,
+                        fn,
+                        userData);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    threads[i].join();
+                }
+            }
         }
 
-        typedef void ForMatchingIterableFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
-
         /*!
-         * \brief Similar to forMatchingSignature(), but with a collection of Component/Tag indices
+         * \brief Similar to forMatchingSimple(), but with a collection of Component/Tag indices
          *
-         * This function works like forMatchingSignature(), but instead of
+         * This function works like forMatchingSimple(), but instead of
          * providing template types that filter out non-matching entities, an
          * iterable of indices must be provided which correlate to matching
          * Component/Tag indices. The function given must match the previously
-         * defined typedef of type ForMatchingIterableFn.
+         * defined typedef of type ForMatchingFn.
          */
         template <typename Iterable>
-        void forMatchingIterable(Iterable iterable, ForMatchingIterableFn fn, void* userPtr = nullptr, std::size_t threadCount = 1) {
+        void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userPtr = nullptr, std::size_t threadCount = 1) {
             if(threadCount <= 1) {
                 bool isValid;
                 for(std::size_t i = 0; i < currentSize; ++i) {
@@ -1687,9 +1741,10 @@ namespace EC
                 std::size_t s = currentSize / threadCount;
                 for(std::size_t i = 0; i < threadCount; ++i) {
                     std::size_t begin = s * i;
-                    std::size_t end = i == threadCount - 1 ?
-                        currentSize :
-                        s * (i + 1);
+                    std::size_t end =
+                        i == threadCount - 1 ?
+                            currentSize :
+                            s * (i + 1);
                     threads[i] = std::thread(
                         [this, &fn, &iterable, userPtr] (std::size_t begin, std::size_t end) {
                             bool isValid;
