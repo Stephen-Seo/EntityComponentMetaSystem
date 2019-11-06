@@ -39,6 +39,8 @@ using EmptyList = EC::Meta::TypeList<>;
 
 using MixedList = EC::Meta::TypeList<C2, T1>;
 
+using ListCombinedComponentsTags = EC::Meta::Combine<ListComponentsAll, ListTagsAll>;
+
 typedef std::unique_ptr<C0> C0Ptr;
 
 struct Base
@@ -1073,4 +1075,267 @@ TEST(EC, FunctionStorageOrder)
     EXPECT_EQ(4, v.at(3));
     EXPECT_EQ(5, v.at(4));
     EXPECT_EQ(6, v.at(5));
+}
+
+TEST(EC, forMatchingSimple) {
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    auto e0 = manager.addEntity();
+    manager.addComponent<C0>(e0, 0, 1);
+
+    auto e1 = manager.addEntity();
+    manager.addComponent<C0>(e1, 2, 3);
+    manager.addTag<T0>(e1);
+
+    auto e2 = manager.addEntity();
+    manager.addComponent<C0>(e2, 4, 5);
+    manager.addTag<T0>(e2);
+    manager.addTag<T1>(e2);
+
+    // add 10 to C0 components
+    manager.forMatchingSimple<EC::Meta::TypeList<C0>>(
+        [] (std::size_t id, decltype(manager) *manager, void *) {
+            C0 *c0 = manager->getEntityData<C0>(id);
+            c0->x += 10;
+            c0->y += 10;
+        }, nullptr, 3);
+
+    // verify
+    {
+        C0 *c0 = manager.getEntityData<C0>(e0);
+        EXPECT_EQ(c0->x, 10);
+        EXPECT_EQ(c0->y, 11);
+        c0 = manager.getEntityData<C0>(e1);
+        EXPECT_EQ(c0->x, 12);
+        EXPECT_EQ(c0->y, 13);
+        c0 = manager.getEntityData<C0>(e2);
+        EXPECT_EQ(c0->x, 14);
+        EXPECT_EQ(c0->y, 15);
+    }
+
+    auto e3 = manager.addEntity();
+    manager.addComponent<C0>(e3, 6, 7);
+    manager.addTag<T0>(e3);
+    manager.addTag<T1>(e3);
+
+    // add 100 to entities with C0,T1
+    manager.forMatchingSimple<EC::Meta::TypeList<C0, T1>>(
+        [] (std::size_t id, decltype(manager) *manager, void *) {
+            C0 *c0 = manager->getEntityData<C0>(id);
+            c0->x += 100;
+            c0->y += 100;
+        });
+
+    // verify
+    {
+        C0 *c0 = manager.getEntityData<C0>(e0);
+        EXPECT_EQ(c0->x, 10);
+        EXPECT_EQ(c0->y, 11);
+        c0 = manager.getEntityData<C0>(e1);
+        EXPECT_EQ(c0->x, 12);
+        EXPECT_EQ(c0->y, 13);
+        c0 = manager.getEntityData<C0>(e2);
+        EXPECT_EQ(c0->x, 114);
+        EXPECT_EQ(c0->y, 115);
+        c0 = manager.getEntityData<C0>(e3);
+        EXPECT_EQ(c0->x, 106);
+        EXPECT_EQ(c0->y, 107);
+    }
+}
+
+TEST(EC, forMatchingIterableFn)
+{
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+    auto e0 = manager.addEntity();
+    manager.addComponent<C0>(e0, 0, 1);
+
+    auto e1 = manager.addEntity();
+    manager.addComponent<C0>(e1, 2, 3);
+    manager.addTag<T0>(e1);
+
+    auto e2 = manager.addEntity();
+    manager.addComponent<C0>(e2, 4, 5);
+    manager.addTag<T0>(e2);
+    manager.addTag<T1>(e2);
+
+    auto c0Index = EC::Meta::IndexOf<C0, ListCombinedComponentsTags>::value;
+    auto c1Index = EC::Meta::IndexOf<C1, ListCombinedComponentsTags>::value;
+    auto t0Index = EC::Meta::IndexOf<T0, ListCombinedComponentsTags>::value;
+    auto t1Index = EC::Meta::IndexOf<T1, ListCombinedComponentsTags>::value;
+
+    {
+        // test valid indices
+        auto iterable = {c0Index};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto* c = m->getEntityComponent<C0>(i);
+            c->x += 1;
+            c->y += 1;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 1);
+        EXPECT_EQ(c->y, 2);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 3);
+        EXPECT_EQ(c->y, 4);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 5);
+        EXPECT_EQ(c->y, 6);
+    }
+
+    {
+        // test invalid indices
+        auto iterable = {c0Index, c1Index};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto* c = m->getEntityComponent<C0>(i);
+            c->x += 1;
+            c->y += 1;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 1);
+        EXPECT_EQ(c->y, 2);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 3);
+        EXPECT_EQ(c->y, 4);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 5);
+        EXPECT_EQ(c->y, 6);
+    }
+
+    {
+        // test partially valid indices
+        auto iterable = {c0Index, t1Index};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto* c = m->getEntityComponent<C0>(i);
+            c->x += 1;
+            c->y += 1;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 1);
+        EXPECT_EQ(c->y, 2);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 3);
+        EXPECT_EQ(c->y, 4);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 6);
+        EXPECT_EQ(c->y, 7);
+    }
+
+    {
+        // test partially valid indices
+        auto iterable = {c0Index, t0Index};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto* c = m->getEntityComponent<C0>(i);
+            c->x += 10;
+            c->y += 10;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 1);
+        EXPECT_EQ(c->y, 2);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 13);
+        EXPECT_EQ(c->y, 14);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 16);
+        EXPECT_EQ(c->y, 17);
+    }
+
+    {
+        // test invalid indices
+        auto iterable = {(unsigned int)c0Index, 1000u};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto* c = m->getEntityComponent<C0>(i);
+            c->x += 1000;
+            c->y += 1000;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 1);
+        EXPECT_EQ(c->y, 2);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 13);
+        EXPECT_EQ(c->y, 14);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 16);
+        EXPECT_EQ(c->y, 17);
+    }
+
+    {
+        // test concurrent update
+        auto iterable = {c0Index};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto *c = m->getEntityComponent<C0>(i);
+            c->x += 100;
+            c->y += 100;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr, 3);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 101);
+        EXPECT_EQ(c->y, 102);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 113);
+        EXPECT_EQ(c->y, 114);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 116);
+        EXPECT_EQ(c->y, 117);
+    }
+
+
+    {
+        // test invalid concurrent update
+        auto iterable = {(unsigned int)c0Index, 1000u};
+        auto fn = [] (std::size_t i, decltype(manager)* m, void*) {
+            auto *c = m->getEntityComponent<C0>(i);
+            c->x += 1000;
+            c->y += 1000;
+        };
+        manager.forMatchingIterable(iterable, fn, nullptr, 3);
+    }
+
+    {
+        auto* c = manager.getEntityComponent<C0>(e0);
+        EXPECT_EQ(c->x, 101);
+        EXPECT_EQ(c->y, 102);
+
+        c = manager.getEntityComponent<C0>(e1);
+        EXPECT_EQ(c->x, 113);
+        EXPECT_EQ(c->y, 114);
+
+        c = manager.getEntityComponent<C0>(e2);
+        EXPECT_EQ(c->x, 116);
+        EXPECT_EQ(c->y, 117);
+    }
 }

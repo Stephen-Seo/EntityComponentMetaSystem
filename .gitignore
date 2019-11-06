@@ -4,3 +4,4 @@ build*/
 doxygen_html/
 compile_commands.json
 tags
+.clangd/

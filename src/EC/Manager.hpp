@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <vector>
+#include <deque>
 #include <tuple>
 #include <utility>
 #include <functional>
@@ -66,14 +67,14 @@ namespace EC
         template <typename... Types>
         struct Storage
         {
-            using type = std::tuple<std::vector<Types>...>;
+            using type = std::tuple<std::deque<Types>...>;
         };
         using ComponentsStorage =
             typename EC::Meta::Morph<ComponentsList, Storage<> >::type;
 
         // Entity: isAlive, ComponentsTags Info
         using EntitiesTupleType = std::tuple<bool, BitsetType>;
-        using EntitiesType = std::vector<EntitiesTupleType>;
+        using EntitiesType = std::deque<EntitiesTupleType>;
 
         EntitiesType entities;
         ComponentsStorage componentsStorage;
@@ -102,7 +103,7 @@ namespace EC
             }
 
             EC::Meta::forEach<ComponentsList>([this, newCapacity] (auto t) {
-                std::get<std::vector<decltype(t)> >(
+                std::get<std::deque<decltype(t)> >(
                     this->componentsStorage).resize(newCapacity);
             });
 
@@ -243,7 +244,7 @@ namespace EC
         {
             if constexpr (EC::Meta::Contains<Component, Components>::value)
             {
-                return &std::get<std::vector<Component> >(componentsStorage)
+                return &std::get<std::deque<Component> >(componentsStorage)
                     .at(index);
             }
             else
@@ -291,7 +292,7 @@ namespace EC
         {
             if constexpr (EC::Meta::Contains<Component, Components>::value)
             {
-                return &std::get<std::vector<Component> >(componentsStorage)
+                return &std::get<std::deque<Component> >(componentsStorage)
                     .at(index);
             }
             else
@@ -400,7 +401,7 @@ namespace EC
                     entities[entityID]
                 ).template getComponentBit<Component>() = true;
 
-                std::get<std::vector<Component> >(componentsStorage)[entityID]
+                std::get<std::deque<Component> >(componentsStorage)[entityID]
                     = std::move(component);
             }
         }
@@ -491,6 +492,23 @@ namespace EC
             }
         }
 
+        /*!
+            \brief Resets the Manager, removing all entities.
+
+            Some data may persist but will be overwritten when new entities
+            are added. Thus, do not depend on data to persist after a call to
+            reset().
+        */
+        void reset()
+        {
+            clearForMatchingFunctions();
+
+            currentSize = 0;
+            currentCapacity = 0;
+            deletedSet.clear();
+            resize(EC_INIT_ENTITIES_SIZE);
+        }
+
     private:
         template <typename... Types>
         struct ForMatchingSignatureHelper
@@ -566,7 +584,7 @@ namespace EC
             The second parameter is default nullptr and will be passed to the
             function call as the second parameter as a means of providing
             context (useful when the function is not a lambda function). The
-            third parameter is default 1 (not multi-threaded). If the third 
+            third parameter is default 1 (not multi-threaded). If the third
             parameter threadCount is set to a value greater than 1, then
             threadCount threads will be used.  Note that multi-threading is
             based on splitting the task of calling the function across sections
@@ -867,7 +885,7 @@ namespace EC
                 std::make_tuple(
                     signatureBitset,
                     context,
-                    [function, helper, this] 
+                    [function, helper, this]
                         (std::size_t threadCount,
                         std::vector<std::size_t> matching,
                         void* context)
@@ -1369,7 +1387,7 @@ namespace EC
                     threads[i].join();
                 }
             }
-            
+
             // call functions on matching entities
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
@@ -1565,7 +1583,7 @@ namespace EC
                     threads[i].join();
                 }
             }
-            
+
             // call functions on matching entities
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
@@ -1635,21 +1653,126 @@ namespace EC
             );
         }
 
+        typedef void ForMatchingFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
+
         /*!
-            \brief Resets the Manager, removing all entities.
+         * \brief A simple version of forMatchingSignature()
+         *
+         * This function behaves like forMatchingSignature(), but instead of
+         * providing a function with each requested component as a parameter,
+         * the function receives a pointer to the manager itself, with which to
+         * query component/tag data.
+         */
+        template <typename Signature>
+        void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, std::size_t threadCount = 1) {
+            const BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
+            if(threadCount <= 1) {
+                for(std::size_t i = 0; i < currentSize; ++i) {
+                    if(!std::get<bool>(entities[i])) {
+                        continue;
+                    } else if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset) {
+                        fn(i, this, userData);
+                    }
+                }
+            } else {
+                std::vector<std::thread> threads(threadCount);
+                const std::size_t s = currentSize / threadCount;
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    const std::size_t begin = s * i;
+                    const std::size_t end =
+                        i == threadCount - 1 ?
+                            currentSize :
+                            s * (i + 1);
+                    threads[i] = std::thread(
+                        [this] (const std::size_t begin,
+                                const std::size_t end,
+                                const BitsetType signatureBitset,
+                                ForMatchingFn fn,
+                                void *userData) {
+                            for(std::size_t i = begin; i < end; ++i) {
+                                if(!std::get<bool>(entities[i])) {
+                                    continue;
+                                } else if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset) {
+                                    fn(i, this, userData);
+                                }
+                            }
+                        },
+                        begin,
+                        end,
+                        signatureBitset,
+                        fn,
+                        userData);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    threads[i].join();
+                }
+            }
+        }
 
-            Some data may persist but will be overwritten when new entities
-            are added. Thus, do not depend on data to persist after a call to
-            reset().
-        */
-        void reset()
-        {
-            clearForMatchingFunctions();
+        /*!
+         * \brief Similar to forMatchingSimple(), but with a collection of Component/Tag indices
+         *
+         * This function works like forMatchingSimple(), but instead of
+         * providing template types that filter out non-matching entities, an
+         * iterable of indices must be provided which correlate to matching
+         * Component/Tag indices. The function given must match the previously
+         * defined typedef of type ForMatchingFn.
+         */
+        template <typename Iterable>
+        void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userPtr = nullptr, std::size_t threadCount = 1) {
+            if(threadCount <= 1) {
+                bool isValid;
+                for(std::size_t i = 0; i < currentSize; ++i) {
+                    if(!std::get<bool>(entities[i])) {
+                        continue;
+                    }
 
-            currentSize = 0;
-            currentCapacity = 0;
-            deletedSet.clear();
-            resize(EC_INIT_ENTITIES_SIZE);
+                    isValid = true;
+                    for(const auto& integralValue : iterable) {
+                        if(!std::get<BitsetType>(entities[i]).getCombinedBit(integralValue)) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+                    if(!isValid) { continue; }
+
+                    fn(i, this, userPtr);
+                }
+            } else {
+                std::vector<std::thread> threads(threadCount);
+                std::size_t s = currentSize / threadCount;
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    std::size_t begin = s * i;
+                    std::size_t end =
+                        i == threadCount - 1 ?
+                            currentSize :
+                            s * (i + 1);
+                    threads[i] = std::thread(
+                        [this, &fn, &iterable, userPtr] (std::size_t begin, std::size_t end) {
+                            bool isValid;
+                            for(std::size_t i = begin; i < end; ++i) {
+                                if(!std::get<bool>(this->entities[i])) {
+                                    continue;
+                                }
+
+                                isValid = true;
+                                for(const auto& integralValue : iterable) {
+                                    if(!std::get<BitsetType>(entities[i]).getCombinedBit(integralValue)) {
+                                        isValid = false;
+                                        break;
+                                    }
+                                }
+                                if(!isValid) { continue; }
+
+                                fn(i, this, userPtr);
+                            }
+                        },
+                    begin, end);
+                }
+                for(std::size_t i = 0; i < threadCount; ++i) {
+                    threads[i].join();
+                }
+            }
         }
     };
 }

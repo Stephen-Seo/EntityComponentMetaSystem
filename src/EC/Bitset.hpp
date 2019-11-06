@@ -75,6 +75,28 @@ namespace EC
 
             return bitset;
         }
+
+        template <typename IntegralType>
+        auto getCombinedBit(const IntegralType& i) {
+            static_assert(std::is_integral<IntegralType>::value,
+                "Parameter must be an integral type");
+            if(i >= Combined::size || i < 0) {
+                return (*this)[Combined::size];
+            } else {
+                return (*this)[i];
+            }
+        }
+
+        template <typename IntegralType>
+        auto getCombinedBit(const IntegralType& i) const {
+            static_assert(std::is_integral<IntegralType>::value,
+                "Parameter must be an integral type");
+            if(i >= Combined::size || i < 0) {
+                return (*this)[Combined::size];
+            } else {
+                return (*this)[i];
+            }
+        }
     };
 }
 
