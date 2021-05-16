@@ -888,7 +888,7 @@ namespace EC
                         std::vector<std::size_t> matching,
                         void* context)
                 {
-                    if(threadCount <= 1)
+                    if(threadCount <= 1 || matching.size() < threadCount)
                     {
                         for(auto eid : matching)
                         {
@@ -907,24 +907,21 @@ namespace EC
                         {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == threadCount - 1)
-                            {
+                            if(i == threadCount - 1) {
                                 end = matching.size();
-                            }
-                            else
-                            {
+                            } else {
                                 end = s * (i + 1);
                             }
                             threads[i] = std::thread(
-                                [this, &function, &helper, &context]
+                                [this, &function, &helper, &context, &matching]
                                     (std::size_t begin,
                                     std::size_t end) {
-                                for(std::size_t i = begin; i < end; ++i)
+                                for(std::size_t j = begin; j < end; ++j)
                                 {
-                                    if(isAlive(i))
+                                    if(isAlive(matching[j]))
                                     {
                                         helper.callInstancePtr(
-                                            i, *this, &function, context);
+                                            matching[j], *this, &function, context);
                                     }
                                 }
                             },
@@ -946,7 +943,7 @@ namespace EC
         {
             std::vector<std::vector<std::size_t> > matchingV(bitsets.size());
 
-            if(threadCount <= 1)
+            if(threadCount <= 1 || currentSize <= threadCount)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -969,44 +966,60 @@ namespace EC
                 std::vector<std::thread> threads(threadCount);
                 std::size_t s = currentSize / threadCount;
                 std::mutex mutex;
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
-                    std::size_t begin = s * i;
-                    std::size_t end;
-                    if(i == threadCount - 1)
-                    {
-                        end = currentSize;
-                    }
-                    else
-                    {
-                        end = s * (i + 1);
-                    }
-                    threads[i] = std::thread(
-                    [this, &matchingV, &bitsets, &mutex]
-                    (std::size_t begin, std::size_t end)
-                    {
-                        for(std::size_t j = begin; j < end; ++j)
-                        {
-                            if(!isAlive(j))
-                            {
-                                continue;
+
+                if(s == 0) {
+                    for(std::size_t i = 0; i < currentSize; ++i) {
+                        threads[i] = std::thread(
+                            [this, &matchingV, &bitsets, &mutex] (std::size_t idx) {
+                            if(!isAlive(idx)) {
+                                return;
                             }
                             for(std::size_t k = 0; k < bitsets.size(); ++k)
                             {
                                 if(((*bitsets[k]) &
-                                    std::get<BitsetType>(entities[j]))
-                                    == (*bitsets[k]))
+                                    std::get<BitsetType>(entities[idx]))
+                                   == (*bitsets[k]))
                                 {
                                     std::lock_guard<std::mutex> guard(mutex);
-                                    matchingV[k].push_back(j);
+                                    matchingV[k].push_back(idx);
                                 }
                             }
+                        }, i);
+                    }
+                    for(std::size_t i = 0; i < currentSize; ++i) {
+                        threads[i].join();
+                    }
+                } else {
+                    for (std::size_t i = 0; i < threadCount; ++i) {
+                        std::size_t begin = s * i;
+                        std::size_t end;
+                        if (i == threadCount - 1) {
+                            end = currentSize;
+                        } else {
+                            end = s * (i + 1);
                         }
-                    }, begin, end);
-                }
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
-                    threads[i].join();
+
+                        threads[i] = std::thread(
+                                [this, &matchingV, &bitsets, &mutex]
+                                        (std::size_t begin, std::size_t end) {
+                                    for (std::size_t j = begin; j < end; ++j) {
+                                        if (!isAlive(j)) {
+                                            continue;
+                                        }
+                                        for (std::size_t k = 0; k < bitsets.size(); ++k) {
+                                            if (((*bitsets[k]) &
+                                                 std::get<BitsetType>(entities[j]))
+                                                == (*bitsets[k])) {
+                                                std::lock_guard<std::mutex> guard(mutex);
+                                                matchingV[k].push_back(j);
+                                            }
+                                        }
+                                    }
+                                }, begin, end);
+                    }
+                    for (std::size_t i = 0; i < threadCount; ++i) {
+                        threads[i].join();
+                    }
                 }
             }
 
