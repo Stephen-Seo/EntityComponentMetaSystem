@@ -1339,3 +1339,34 @@ TEST(EC, forMatchingIterableFn)
         EXPECT_EQ(c->y, 117);
     }
 }
+
+// This test tests for the previously fixed bug where
+// callForMatchingFunction(s) can fail to call fns on
+// the correct entities.
+// Fixed in commit e0f30db951fcedd0ec51c680bd60a2157bd355a6
+TEST(EC, MultiThreadedForMatching) {
+    EC::Manager<ListComponentsAll, ListTagsAll> manager;
+
+    std::size_t first = manager.addEntity();
+    std::size_t second = manager.addEntity();
+
+    manager.addComponent<C1>(second);
+    manager.getEntityComponent<C1>(second)->vx = 1;
+
+    std::size_t fnIdx = manager.addForMatchingFunction<EC::Meta::TypeList<C1>>(
+            [] (std::size_t id, void *data, C1 *c) {
+        c->vx -= 1;
+        if(c->vx <= 0) {
+            auto *manager = (EC::Manager<ListComponentsAll, ListTagsAll>*)data;
+            manager->deleteEntity(id);
+        }
+    }, &manager);
+
+    EXPECT_TRUE(manager.isAlive(first));
+    EXPECT_TRUE(manager.isAlive(second));
+
+    manager.callForMatchingFunction(fnIdx, 2);
+
+    EXPECT_TRUE(manager.isAlive(first));
+    EXPECT_FALSE(manager.isAlive(second));
+}
