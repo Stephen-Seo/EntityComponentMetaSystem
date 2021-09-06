@@ -87,13 +87,11 @@ public:
     }
 
     void wakeThreads(bool wakeAll = true) {
-        unsigned int counter = 0;
         if(wakeAll) {
             cv.notify_all();
         } else {
             cv.notify_one();
         }
-        while(isAllThreadsWaiting() && counter++ < 10000) {}
     }
 
     int getWaitCount() {

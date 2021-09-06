@@ -22,9 +22,9 @@ TEST(ECThreadPool, Simple) {
 
     p.wakeThreads();
 
-    while(!p.isAllThreadsWaiting()) {
+    do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    } while(!p.isAllThreadsWaiting());
 
     ASSERT_EQ(data.load(), 1);
 
@@ -33,9 +33,9 @@ TEST(ECThreadPool, Simple) {
     }
     p.wakeThreads();
 
-    while(!p.isAllThreadsWaiting()) {
+    do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    } while(!p.isAllThreadsWaiting());
 
     ASSERT_EQ(data.load(), 11);
 }
