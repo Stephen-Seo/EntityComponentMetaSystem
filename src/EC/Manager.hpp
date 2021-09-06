@@ -693,7 +693,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
         }
@@ -812,7 +812,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
         }
@@ -956,7 +956,7 @@ namespace EC
                         }
                         threadPool.wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                            std::this_thread::sleep_for(std::chrono::microseconds(200));
                         } while(!threadPool.isAllThreadsWaiting());
                     }
                 })));
@@ -1035,7 +1035,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
 
@@ -1414,7 +1414,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
 
@@ -1476,7 +1476,7 @@ namespace EC
                         }
                         threadPool.wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                            std::this_thread::sleep_for(std::chrono::microseconds(200));
                         } while(!threadPool.isAllThreadsWaiting());
                     }
                 }
@@ -1607,7 +1607,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
 
@@ -1674,7 +1674,7 @@ namespace EC
                         }
                         threadPool.wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                            std::this_thread::sleep_for(std::chrono::microseconds(200));
                         } while(!threadPool.isAllThreadsWaiting());
                     }
                 }
@@ -1738,7 +1738,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
         }
@@ -1818,7 +1818,7 @@ namespace EC
                 }
                 threadPool.wakeThreads();
                 do {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
                 } while(!threadPool.isAllThreadsWaiting());
             }
         }

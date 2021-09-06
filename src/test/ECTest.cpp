@@ -458,11 +458,6 @@ TEST(EC, MultiThreaded)
         EXPECT_EQ(0, manager.getEntityData<C0>(i)->y);
     }
 
-#ifndef NDEBUG
-    std::clog << "Addr of C0 for entity 0 is " << manager.getEntityData<C0>(0)
-        << std::endl;
-#endif
-
     manager.forMatchingSignature<EC::Meta::TypeList<C0> >(
         [] (const std::size_t& /* id */, void* /* context */, C0* c) {
             c->x = 1;
