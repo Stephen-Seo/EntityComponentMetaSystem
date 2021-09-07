@@ -29,8 +29,6 @@ namespace Internal {
 template <unsigned int SIZE>
 class ThreadPool {
 public:
-    using THREADCOUNT = std::integral_constant<int, SIZE>;
-
     ThreadPool() : waitCount(0) {
         isAlive.store(true);
         if constexpr(SIZE >= 2) {
@@ -160,7 +158,7 @@ public:
     bool isAllThreadsWaiting() {
         if constexpr(SIZE >= 2) {
             std::lock_guard<std::mutex> lock(waitCountMutex);
-            return waitCount == THREADCOUNT::value;
+            return waitCount == SIZE;
         } else {
             return true;
         }
