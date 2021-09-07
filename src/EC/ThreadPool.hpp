@@ -104,6 +104,11 @@ public:
         return waitCount == THREADCOUNT::value;
     }
 
+    bool isQueueEmpty() {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        return fnQueue.empty();
+    }
+
 private:
     std::vector<std::thread> threads;
     std::atomic_bool isAlive;
