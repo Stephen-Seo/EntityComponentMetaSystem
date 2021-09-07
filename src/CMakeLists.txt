@@ -21,8 +21,10 @@ set(EntityComponentSystem_HEADERS
 set(WillFailCompile_SOURCES
     test/WillFailCompileTest.cpp)
 
+find_package(Threads REQUIRED)
+
 add_library(EntityComponentSystem INTERFACE)
-target_link_libraries(EntityComponentSystem INTERFACE pthread)
+target_link_libraries(EntityComponentSystem INTERFACE ${CMAKE_THREAD_LIBS_INIT})
 target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 
