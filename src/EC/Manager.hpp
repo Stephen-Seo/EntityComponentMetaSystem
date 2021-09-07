@@ -96,6 +96,72 @@ namespace EC
         std::unique_ptr<ThreadPool<ThreadCount> > threadPool;
 
     public:
+        // section for "temporary" structures {{{
+        struct TPFnDataStructZero {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            EntitiesType *entities;
+            const BitsetType *signature;
+            void *userData;
+        };
+        template <typename Function>
+        struct TPFnDataStructOne {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            EntitiesType *entities;
+            BitsetType *signature;
+            void *userData;
+            Function *fn;
+        };
+        struct TPFnDataStructTwo {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            EntitiesType *entities;
+            void *userData;
+            const std::vector<std::size_t> *matching;
+        };
+        struct TPFnDataStructThree {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            std::vector<std::vector<std::size_t> > *matchingV;
+            const std::vector<BitsetType*> *bitsets;
+            EntitiesType *entities;
+            std::mutex *mutex;
+        };
+        struct TPFnDataStructFour {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            std::vector<std::vector<std::size_t> >*
+                multiMatchingEntities;
+            BitsetType *signatures;
+            std::mutex *mutex;
+        };
+        struct TPFnDataStructFive {
+            std::array<std::size_t, 2> range;
+            std::size_t index;
+            Manager *manager;
+            void *userData;
+            std::vector<std::vector<std::size_t> >*
+                multiMatchingEntities;
+        };
+        struct TPFnDataStructSix {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            std::vector<std::vector<std::size_t> > *
+                multiMatchingEntities;
+            BitsetType *bitsets;
+            std::mutex *mutex;
+        };
+        template <typename Iterable>
+        struct TPFnDataStructSeven {
+            std::array<std::size_t, 2> range;
+            Manager *manager;
+            EntitiesType *entities;
+            Iterable *iterable;
+            void *userData;
+        };
+        // end section for "temporary" structures }}}
+
         /*!
             \brief Initializes the manager with a default capacity.
 
@@ -656,14 +722,7 @@ namespace EC
             }
             else
             {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    EntitiesType *entities;
-                    BitsetType *signature;
-                    void *userData;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructZero, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -684,7 +743,7 @@ namespace EC
                     fnDataAr[i].userData = userData;
 
                     threadPool->queueFn([&function] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructZero*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
                             if(!data->manager->isAlive(i)) {
@@ -784,15 +843,7 @@ namespace EC
             }
             else
             {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    EntitiesType *entities;
-                    BitsetType *signature;
-                    void *userData;
-                    Function *fn;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructOne<Function>, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -813,7 +864,7 @@ namespace EC
                     fnDataAr[i].userData = userData;
                     fnDataAr[i].fn = function;
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructOne<Function>*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
                             if(!data->manager->isAlive(i)) {
@@ -942,14 +993,7 @@ namespace EC
                     }
                     else
                     {
-                        struct TPFnDataStruct {
-                            std::array<std::size_t, 2> range;
-                            Manager *manager;
-                            EntitiesType *entities;
-                            void *userData;
-                            const std::vector<std::size_t> *matching;
-                        };
-                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                        std::array<TPFnDataStructTwo, ThreadCount> fnDataAr;
 
                         std::size_t s = matching.size() / ThreadCount;
                         for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -969,7 +1013,7 @@ namespace EC
                             fnDataAr[i].userData = userData;
                             fnDataAr[i].matching = &matching;
                             threadPool->queueFn([&function, helper] (void* ud) {
-                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                auto *data = static_cast<TPFnDataStructTwo*>(ud);
                                 for(std::size_t i = data->range[0];
                                         i < data->range[1];
                                         ++i) {
@@ -1022,15 +1066,7 @@ namespace EC
             }
             else
             {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    std::vector<std::vector<std::size_t> > *matchingV;
-                    const std::vector<BitsetType*> *bitsets;
-                    EntitiesType *entities;
-                    std::mutex *mutex;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructThree, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 std::mutex mutex;
@@ -1052,7 +1088,7 @@ namespace EC
                     fnDataAr[i].entities = &entities;
                     fnDataAr[i].mutex = &mutex;
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructThree*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
                             if(!data->manager->isAlive(i)) {
@@ -1420,15 +1456,7 @@ namespace EC
             }
             else
             {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    std::vector<std::vector<std::size_t> >*
-                        multiMatchingEntities;
-                    BitsetType *signatures;
-                    std::mutex *mutex;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructFour, ThreadCount> fnDataAr;
 
                 std::mutex mutex;
                 std::size_t s = currentSize / ThreadCount;
@@ -1450,7 +1478,7 @@ namespace EC
                     fnDataAr[i].mutex = &mutex;
 
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructFour*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
                             if(!data->manager->isAlive(i)) {
@@ -1498,15 +1526,7 @@ namespace EC
                             }
                         }
                     } else {
-                        struct TPFnDataStruct {
-                            std::array<std::size_t, 2> range;
-                            std::size_t index;
-                            Manager *manager;
-                            void *userData;
-                            std::vector<std::vector<std::size_t> >*
-                                multiMatchingEntities;
-                        };
-                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                        std::array<TPFnDataStructFive, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
                             / ThreadCount;
                         for(unsigned int i = 0; i < ThreadCount; ++i) {
@@ -1527,7 +1547,7 @@ namespace EC
                             fnDataAr[i].multiMatchingEntities =
                                 &multiMatchingEntities;
                             threadPool->queueFn([&func] (void *ud) {
-                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                auto *data = static_cast<TPFnDataStructFive*>(ud);
                                 for(std::size_t i = data->range[0];
                                         i < data->range[1]; ++i) {
                                     if(data->manager->isAlive(
@@ -1644,15 +1664,7 @@ namespace EC
             }
             else
             {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    std::vector<std::vector<std::size_t> > *
-                        multiMatchingEntities;
-                    BitsetType *bitsets;
-                    std::mutex *mutex;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructSix, ThreadCount> fnDataAr;
 
                 std::mutex mutex;
                 std::size_t s = currentSize / ThreadCount;
@@ -1674,7 +1686,7 @@ namespace EC
                     fnDataAr[i].mutex = &mutex;
 
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructSix*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
                             if(!data->manager->isAlive(i)) {
@@ -1727,15 +1739,7 @@ namespace EC
                     }
                     else
                     {
-                        struct TPFnDataStruct {
-                            std::array<std::size_t, 2> range;
-                            std::size_t index;
-                            Manager *manager;
-                            void *userData;
-                            std::vector<std::vector<std::size_t> >*
-                                multiMatchingEntities;
-                        };
-                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                        std::array<TPFnDataStructFive, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
                             / ThreadCount;
                         for(unsigned int i = 0; i < ThreadCount; ++i) {
@@ -1756,7 +1760,7 @@ namespace EC
                             fnDataAr[i].multiMatchingEntities =
                                 &multiMatchingEntities;
                             threadPool->queueFn([&func] (void *ud) {
-                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                auto *data = static_cast<TPFnDataStructFive*>(ud);
                                 for(std::size_t i = data->range[0];
                                         i < data->range[1]; ++i) {
                                     if(data->manager->isAlive(
@@ -1821,14 +1825,7 @@ namespace EC
                     }
                 }
             } else {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    EntitiesType *entities;
-                    const BitsetType *signature;
-                    void *userData;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructZero, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -1848,7 +1845,7 @@ namespace EC
                     fnDataAr[i].signature = &signatureBitset;
                     fnDataAr[i].userData = userData;
                     threadPool->queueFn([&fn] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructZero*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
                             if(!data->manager->isAlive(i)) {
@@ -1913,14 +1910,7 @@ namespace EC
                     fn(i, this, userData);
                 }
             } else {
-                struct TPFnDataStruct {
-                    std::array<std::size_t, 2> range;
-                    Manager *manager;
-                    EntitiesType *entities;
-                    Iterable *iterable;
-                    void *userData;
-                };
-                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructSeven<Iterable>, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -1940,7 +1930,7 @@ namespace EC
                     fnDataAr[i].iterable = &iterable;
                     fnDataAr[i].userData = userData;
                     threadPool->queueFn([&fn] (void *ud) {
-                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        auto *data = static_cast<TPFnDataStructSeven<Iterable>*>(ud);
                         bool isValid;
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
