@@ -14,7 +14,9 @@ set(EntityComponentSystem_HEADERS
     EC/Meta/Meta.hpp
     EC/Bitset.hpp
     EC/Manager.hpp
-    EC/EC.hpp)
+    EC/EC.hpp
+    EC/ThreadPool.hpp
+)
 
 set(WillFailCompile_SOURCES
     test/WillFailCompileTest.cpp)
@@ -48,7 +50,9 @@ if(GTEST_FOUND)
     set(UnitTests_SOURCES
         test/MetaTest.cpp
         test/ECTest.cpp
-        test/Main.cpp)
+        test/ThreadPoolTest.cpp
+        test/Main.cpp
+    )
 
     add_executable(UnitTests ${UnitTests_SOURCES})
     target_link_libraries(UnitTests EntityComponentSystem ${GTEST_LIBRARIES})
