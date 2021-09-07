@@ -1370,3 +1370,30 @@ TEST(EC, MultiThreadedForMatching) {
     EXPECT_TRUE(manager.isAlive(first));
     EXPECT_FALSE(manager.isAlive(second));
 }
+
+TEST(EC, ManagerWithLowThreadCount) {
+    EC::Manager<ListComponentsAll, ListTagsAll, 1> manager;
+
+    std::array<std::size_t, 10> entities;
+    for(auto &id : entities) {
+        id = manager.addEntity();
+        manager.addComponent<C0>(id);
+    }
+
+    for(const auto &id : entities) {
+        auto *component = manager.getEntityComponent<C0>(id);
+        EXPECT_EQ(component->x, 0);
+        EXPECT_EQ(component->y, 0);
+    }
+
+    manager.forMatchingSignature<EC::Meta::TypeList<C0> >([] (std::size_t /*id*/, void* /*ud*/, C0 *c) {
+        c->x += 1;
+        c->y += 1;
+    }, nullptr, true);
+
+    for(const auto &id : entities) {
+        auto *component = manager.getEntityComponent<C0>(id);
+        EXPECT_EQ(component->x, 1);
+        EXPECT_EQ(component->y, 1);
+    }
+}

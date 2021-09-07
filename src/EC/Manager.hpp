@@ -93,7 +93,7 @@ namespace EC
         std::size_t currentSize = 0;
         std::unordered_set<std::size_t> deletedSet;
 
-        ThreadPool<ThreadCount> threadPool;
+        std::unique_ptr<ThreadPool<ThreadCount> > threadPool;
 
     public:
         /*!
@@ -105,6 +105,9 @@ namespace EC
         Manager()
         {
             resize(EC_INIT_ENTITIES_SIZE);
+            if(ThreadCount >= 2) {
+                threadPool = std::make_unique<ThreadPool<ThreadCount> >();
+            }
         }
 
     private:
@@ -634,7 +637,7 @@ namespace EC
 
             BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
-            if(!useThreadPool)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -673,7 +676,7 @@ namespace EC
                     std::get<2>(fnDataAr.at(i)) = &signatureBitset;
                     std::get<3>(fnDataAr.at(i)) = {begin, end};
                     std::get<4>(fnDataAr.at(i)) = userData;
-                    threadPool.queueFn([&function] (void *ud) {
+                    threadPool->queueFn([&function] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         for(std::size_t i = std::get<3>(*data).at(0);
                                 i < std::get<3>(*data).at(1);
@@ -691,10 +694,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -753,7 +756,7 @@ namespace EC
 
             BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
-            if(!useThreadPool)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -792,7 +795,7 @@ namespace EC
                     std::get<3>(fnDataAr.at(i)) = {begin, end};
                     std::get<4>(fnDataAr.at(i)) = userData;
                     std::get<5>(fnDataAr.at(i)) = function;
-                    threadPool.queueFn([] (void *ud) {
+                    threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         for(std::size_t i = std::get<3>(*data).at(0);
                                 i < std::get<3>(*data).at(1);
@@ -810,10 +813,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -906,7 +909,7 @@ namespace EC
                         std::vector<std::size_t> matching,
                         void* userData)
                 {
-                    if(!useThreadPool)
+                    if(!useThreadPool || !threadPool)
                     {
                         for(auto eid : matching)
                         {
@@ -939,7 +942,7 @@ namespace EC
                             std::get<2>(fnDataAr.at(i)) = {begin, end};
                             std::get<3>(fnDataAr.at(i)) = userData;
                             std::get<4>(fnDataAr.at(i)) = &matching;
-                            threadPool.queueFn([function, helper] (void* ud) {
+                            threadPool->queueFn([function, helper] (void* ud) {
                                 auto *data = static_cast<TPFnDataType*>(ud);
                                 for(std::size_t i = std::get<2>(*data).at(0);
                                         i < std::get<2>(*data).at(1);
@@ -954,10 +957,10 @@ namespace EC
                                 }
                             }, &fnDataAr.at(i));
                         }
-                        threadPool.wakeThreads();
+                        threadPool->wakeThreads();
                         do {
                             std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                        } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
                     }
                 })));
 
@@ -970,7 +973,7 @@ namespace EC
         {
             std::vector<std::vector<std::size_t> > matchingV(bitsets.size());
 
-            if(!useThreadPool)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -1012,7 +1015,7 @@ namespace EC
                     std::get<3>(fnDataAr.at(i)) = &bitsets;
                     std::get<4>(fnDataAr.at(i)) = &entities;
                     std::get<5>(fnDataAr.at(i)) = &mutex;
-                    threadPool.queueFn([] (void *ud) {
+                    threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         for(std::size_t i = std::get<1>(*data).at(0);
                                 i < std::get<1>(*data).at(1);
@@ -1033,10 +1036,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
 
             return matchingV;
@@ -1351,7 +1354,7 @@ namespace EC
             });
 
             // find and store entities matching signatures
-            if(!useThreadPool)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t eid = 0; eid < currentSize; ++eid)
                 {
@@ -1394,7 +1397,7 @@ namespace EC
                     std::get<3>(fnDataAr.at(i)) = signatureBitsets;
                     std::get<4>(fnDataAr.at(i)) = &mutex;
 
-                    threadPool.queueFn([] (void *ud) {
+                    threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         for(std::size_t i = std::get<1>(*data).at(0);
                                 i < std::get<1>(*data).at(1);
@@ -1412,10 +1415,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
 
             // call functions on matching entities
@@ -1432,7 +1435,7 @@ namespace EC
                         EC::Meta::Morph<
                             SignatureComponents,
                             ForMatchingSignatureHelper<> >;
-                    if(!useThreadPool) {
+                    if(!useThreadPool || !threadPool) {
                         for(const auto& id : multiMatchingEntities[index]) {
                             if(isAlive(id)) {
                                 Helper::call(id, *this, func, userData);
@@ -1459,7 +1462,7 @@ namespace EC
                             std::get<2>(fnDataAr.at(i)) = {begin, end};
                             std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
                             std::get<4>(fnDataAr.at(i)) = index;
-                            threadPool.queueFn([&func] (void *ud) {
+                            threadPool->queueFn([&func] (void *ud) {
                                 auto *data = static_cast<TPFnType*>(ud);
                                 for(std::size_t i = std::get<2>(*data).at(0);
                                         i < std::get<2>(*data).at(1);
@@ -1474,10 +1477,10 @@ namespace EC
                                 }
                             }, &fnDataAr.at(i));
                         }
-                        threadPool.wakeThreads();
+                        threadPool->wakeThreads();
                         do {
                             std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                        } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
@@ -1544,7 +1547,7 @@ namespace EC
             });
 
             // find and store entities matching signatures
-            if(!useThreadPool)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t eid = 0; eid < currentSize; ++eid)
                 {
@@ -1587,7 +1590,7 @@ namespace EC
                     std::get<3>(fnDataAr.at(i)) = signatureBitsets;
                     std::get<4>(fnDataAr.at(i)) = &mutex;
 
-                    threadPool.queueFn([] (void *ud) {
+                    threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         for(std::size_t i = std::get<1>(*data).at(0);
                                 i < std::get<1>(*data).at(1);
@@ -1605,10 +1608,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
 
             // call functions on matching entities
@@ -1625,7 +1628,7 @@ namespace EC
                         EC::Meta::Morph<
                             SignatureComponents,
                             ForMatchingSignatureHelper<> >;
-                    if(!useThreadPool)
+                    if(!useThreadPool || !threadPool)
                     {
                         for(const auto& id : multiMatchingEntities[index])
                         {
@@ -1657,7 +1660,7 @@ namespace EC
                             std::get<2>(fnDataAr.at(i)) = {begin, end};
                             std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
                             std::get<4>(fnDataAr.at(i)) = index;
-                            threadPool.queueFn([&func] (void *ud) {
+                            threadPool->queueFn([&func] (void *ud) {
                                 auto *data = static_cast<TPFnType*>(ud);
                                 for(std::size_t i = std::get<2>(*data).at(0);
                                         i < std::get<2>(*data).at(1);
@@ -1672,10 +1675,10 @@ namespace EC
                                 }
                             }, &fnDataAr.at(i));
                         }
-                        threadPool.wakeThreads();
+                        threadPool->wakeThreads();
                         do {
                             std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                        } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
@@ -1694,7 +1697,7 @@ namespace EC
         template <typename Signature>
         void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, const bool useThreadPool = false) {
             const BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
-            if(!useThreadPool) {
+            if(!useThreadPool || !threadPool) {
                 for(std::size_t i = 0; i < currentSize; ++i) {
                     if(!std::get<bool>(entities[i])) {
                         continue;
@@ -1723,7 +1726,7 @@ namespace EC
                     std::get<2>(fnDataAr.at(i)) = &signatureBitset;
                     std::get<3>(fnDataAr.at(i)) = {begin, end};
                     std::get<4>(fnDataAr.at(i)) = userData;
-                    threadPool.queueFn([&fn] (void *ud) {
+                    threadPool->queueFn([&fn] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         for(std::size_t i = std::get<3>(*data).at(0);
                                 i < std::get<3>(*data).at(1);
@@ -1736,10 +1739,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -1754,7 +1757,7 @@ namespace EC
          */
         template <typename Iterable>
         void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userData = nullptr, const bool useThreadPool = false) {
-            if(!useThreadPool) {
+            if(!useThreadPool || !threadPool) {
                 bool isValid;
                 for(std::size_t i = 0; i < currentSize; ++i) {
                     if(!std::get<bool>(entities[i])) {
@@ -1793,7 +1796,7 @@ namespace EC
                     std::get<2>(fnDataAr.at(i)) = &iterable;
                     std::get<3>(fnDataAr.at(i)) = {begin, end};
                     std::get<4>(fnDataAr.at(i)) = userData;
-                    threadPool.queueFn([&fn] (void *ud) {
+                    threadPool->queueFn([&fn] (void *ud) {
                         auto *data = static_cast<TPFnDataType*>(ud);
                         bool isValid;
                         for(std::size_t i = std::get<3>(*data).at(0);
@@ -1816,10 +1819,10 @@ namespace EC
                         }
                     }, &fnDataAr.at(i));
                 }
-                threadPool.wakeThreads();
+                threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool.isQueueEmpty() && !threadPool.isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
     };

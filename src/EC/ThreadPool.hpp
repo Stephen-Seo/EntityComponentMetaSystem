@@ -20,64 +20,66 @@ namespace Internal {
     using TPQueueType = std::queue<TPTupleType>;
 } // namespace Internal
 
-template <unsigned int SIZE, typename = void>
-class ThreadPool;
-
 template <unsigned int SIZE>
-class ThreadPool<SIZE, typename std::enable_if<(SIZE >= 2)>::type> {
+class ThreadPool {
 public:
     using THREADCOUNT = std::integral_constant<int, SIZE>;
 
     ThreadPool() : waitCount(0) {
         isAlive.store(true);
-        for(unsigned int i = 0; i < SIZE; ++i) {
-            threads.emplace_back([] (std::atomic_bool *isAlive,
-                                     std::condition_variable *cv,
-                                     std::mutex *cvMutex,
-                                     Internal::TPQueueType *fnQueue,
-                                     std::mutex *queueMutex,
-                                     int *waitCount,
-                                     std::mutex *waitCountMutex) {
-                bool hasFn = false;
-                Internal::TPTupleType fnTuple;
-                while(isAlive->load()) {
-                    hasFn = false;
-                    {
-                        std::lock_guard<std::mutex> lock(*queueMutex);
-                        if(!fnQueue->empty()) {
-                            fnTuple = fnQueue->front();
-                            fnQueue->pop();
-                            hasFn = true;
+        if(SIZE >= 2) {
+            for(unsigned int i = 0; i < SIZE; ++i) {
+                threads.emplace_back([] (std::atomic_bool *isAlive,
+                                         std::condition_variable *cv,
+                                         std::mutex *cvMutex,
+                                         Internal::TPQueueType *fnQueue,
+                                         std::mutex *queueMutex,
+                                         int *waitCount,
+                                         std::mutex *waitCountMutex) {
+                    bool hasFn = false;
+                    Internal::TPTupleType fnTuple;
+                    while(isAlive->load()) {
+                        hasFn = false;
+                        {
+                            std::lock_guard<std::mutex> lock(*queueMutex);
+                            if(!fnQueue->empty()) {
+                                fnTuple = fnQueue->front();
+                                fnQueue->pop();
+                                hasFn = true;
+                            }
+                        }
+                        if(hasFn) {
+                            std::get<0>(fnTuple)(std::get<1>(fnTuple));
+                            continue;
+                        }
+
+                        {
+                            std::lock_guard<std::mutex> lock(*waitCountMutex);
+                            *waitCount += 1;
+                        }
+                        {
+                            std::unique_lock<std::mutex> lock(*cvMutex);
+                            cv->wait(lock);
+                        }
+                        {
+                            std::lock_guard<std::mutex> lock(*waitCountMutex);
+                            *waitCount -= 1;
                         }
                     }
-                    if(hasFn) {
-                        std::get<0>(fnTuple)(std::get<1>(fnTuple));
-                        continue;
-                    }
-
-                    {
-                        std::lock_guard<std::mutex> lock(*waitCountMutex);
-                        *waitCount += 1;
-                    }
-                    {
-                        std::unique_lock<std::mutex> lock(*cvMutex);
-                        cv->wait(lock);
-                    }
-                    {
-                        std::lock_guard<std::mutex> lock(*waitCountMutex);
-                        *waitCount -= 1;
-                    }
-                }
-            }, &isAlive, &cv, &cvMutex, &fnQueue, &queueMutex, &waitCount, &waitCountMutex);
+                }, &isAlive, &cv, &cvMutex, &fnQueue, &queueMutex, &waitCount,
+                   &waitCountMutex);
+            }
         }
     }
 
     ~ThreadPool() {
-        isAlive.store(false);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        cv.notify_all();
-        for(auto &thread : threads) {
-            thread.join();
+        if(SIZE >= 2) {
+            isAlive.store(false);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            cv.notify_all();
+            for(auto &thread : threads) {
+                thread.join();
+            }
         }
     }
 
@@ -87,10 +89,32 @@ public:
     }
 
     void wakeThreads(bool wakeAll = true) {
-        if(wakeAll) {
-            cv.notify_all();
+        if(SIZE >= 2) {
+            // wake threads to pull functions from queue and run them
+            if(wakeAll) {
+                cv.notify_all();
+            } else {
+                cv.notify_one();
+            }
         } else {
-            cv.notify_one();
+            // pull functions from queue and run them on main thread
+            Internal::TPTupleType fnTuple;
+            bool hasFn;
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    if(!fnQueue.empty()) {
+                        hasFn = true;
+                        fnTuple = fnQueue.front();
+                        fnQueue.pop();
+                    } else {
+                        hasFn = false;
+                    }
+                }
+                if(hasFn) {
+                    std::get<0>(fnTuple)(std::get<1>(fnTuple));
+                }
+            } while(hasFn);
         }
     }
 
@@ -100,8 +124,12 @@ public:
     }
 
     bool isAllThreadsWaiting() {
-        std::lock_guard<std::mutex> lock(waitCountMutex);
-        return waitCount == THREADCOUNT::value;
+        if(SIZE >= 2) {
+            std::lock_guard<std::mutex> lock(waitCountMutex);
+            return waitCount == THREADCOUNT::value;
+        } else {
+            return true;
+        }
     }
 
     bool isQueueEmpty() {
