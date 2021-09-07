@@ -940,7 +940,7 @@ namespace EC
                             std::get<2>(fnDataAr.at(i)) = {begin, end};
                             std::get<3>(fnDataAr.at(i)) = userData;
                             std::get<4>(fnDataAr.at(i)) = &matching;
-                            threadPool->queueFn([function, helper] (void* ud) {
+                            threadPool->queueFn([&function, helper] (void* ud) {
                                 auto *data = static_cast<TPFnDataType*>(ud);
                                 for(std::size_t i = std::get<2>(*data).at(0);
                                         i < std::get<2>(*data).at(1);
@@ -1448,8 +1448,15 @@ namespace EC
                             }
                         }
                     } else {
-                        using TPFnType = std::tuple<Manager*, void*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> > *, std::size_t>;
-                        std::array<TPFnType, ThreadCount> fnDataAr;
+                        struct TPFnDataStruct {
+                            std::array<std::size_t, 2> range;
+                            std::size_t index;
+                            Manager *manager;
+                            void *userData;
+                            std::vector<std::vector<std::size_t> >*
+                                multiMatchingEntities;
+                        };
+                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
                             / ThreadCount;
                         for(unsigned int i = 0; i < ThreadCount; ++i) {
@@ -1463,30 +1470,35 @@ namespace EC
                             if(begin == end) {
                                 continue;
                             }
-                            std::get<0>(fnDataAr.at(i)) = this;
-                            std::get<1>(fnDataAr.at(i)) = userData;
-                            std::get<2>(fnDataAr.at(i)) = {begin, end};
-                            std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
-                            std::get<4>(fnDataAr.at(i)) = index;
+                            fnDataAr[i].range = {begin, end};
+                            fnDataAr[i].index = index;
+                            fnDataAr[i].manager = this;
+                            fnDataAr[i].userData = userData;
+                            fnDataAr[i].multiMatchingEntities =
+                                &multiMatchingEntities;
                             threadPool->queueFn([&func] (void *ud) {
-                                auto *data = static_cast<TPFnType*>(ud);
-                                for(std::size_t i = std::get<2>(*data).at(0);
-                                        i < std::get<2>(*data).at(1);
-                                        ++i) {
-                                    if(std::get<0>(*data)->isAlive(std::get<3>(*data)->at(std::get<4>(*data)).at(i))) {
+                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                for(std::size_t i = data->range[0];
+                                        i < data->range[1]; ++i) {
+                                    if(data->manager->isAlive(
+                                            data->multiMatchingEntities
+                                                ->at(data->index).at(i))) {
                                         Helper::call(
-                                            std::get<3>(*data)->at(std::get<4>(*data)).at(i),
-                                            *std::get<0>(*data),
+                                            data->multiMatchingEntities
+                                                ->at(data->index).at(i),
+                                            *data->manager,
                                             func,
-                                            std::get<1>(*data));
+                                            data->userData);
                                     }
                                 }
-                            }, &fnDataAr.at(i));
+                            }, &fnDataAr[i]);
                         }
                         threadPool->wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                            std::this_thread::sleep_for(
+                                std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty()
+                            || !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
