@@ -102,7 +102,7 @@ namespace EC
         Manager()
         {
             resize(EC_INIT_ENTITIES_SIZE);
-            if(ThreadCount >= 2) {
+            if constexpr(ThreadCount >= 2) {
                 threadPool = std::make_unique<ThreadPool<ThreadCount> >();
             }
         }
