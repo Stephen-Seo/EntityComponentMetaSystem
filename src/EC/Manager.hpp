@@ -10,6 +10,7 @@
 #define EC_INIT_ENTITIES_SIZE 256
 #define EC_GROW_SIZE_AMOUNT 256
 
+#include <array>
 #include <cstddef>
 #include <vector>
 #include <deque>
