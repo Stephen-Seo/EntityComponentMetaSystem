@@ -35,6 +35,8 @@
 #include "Meta/ForEachDoubleTuple.hpp"
 #include "Bitset.hpp"
 
+#include "ThreadPool.hpp"
+
 namespace EC
 {
     /*!
@@ -45,12 +47,18 @@ namespace EC
 
         Note that all components must have a default constructor.
 
+        An optional third template parameter may be given, which is the size of
+        the number of threads in the internal ThreadPool, and should be at
+        least 2. If ThreadCount is 1 or less, then the ThreadPool will not be
+        created and it will never be used, even if the "true" parameter is given
+        for functions that enable its usage.
+
         Example:
         \code{.cpp}
             EC::Manager<TypeList<C0, C1, C2>, TypeList<T0, T1>> manager;
         \endcode
     */
-    template <typename ComponentsList, typename TagsList>
+    template <typename ComponentsList, typename TagsList, unsigned int ThreadCount = 4>
     struct Manager
     {
     public:
@@ -82,6 +90,8 @@ namespace EC
         std::size_t currentSize = 0;
         std::unordered_set<std::size_t> deletedSet;
 
+        std::unique_ptr<ThreadPool<ThreadCount> > threadPool;
+
     public:
         /*!
             \brief Initializes the manager with a default capacity.
@@ -92,6 +102,9 @@ namespace EC
         Manager()
         {
             resize(EC_INIT_ENTITIES_SIZE);
+            if(ThreadCount >= 2) {
+                threadPool = std::make_unique<ThreadPool<ThreadCount> >();
+            }
         }
 
     private:
@@ -463,16 +476,16 @@ namespace EC
             }
         }
 
-    /*!
-        \brief Removes the given Tag from the given Entity.
+        /*!
+            \brief Removes the given Tag from the given Entity.
 
-        If the Entity does not have the Tag given, nothing will change.
+            If the Entity does not have the Tag given, nothing will change.
 
-        Example:
-        \code{.cpp}
-            manager.removeTag<T0>(entityID);
-        \endcode
-    */
+            Example:
+            \code{.cpp}
+                manager.removeTag<T0>(entityID);
+            \endcode
+        */
         template <typename Tag>
         void removeTag(const std::size_t& entityID)
         {
@@ -518,11 +531,11 @@ namespace EC
                 const std::size_t& entityID,
                 CType& ctype,
                 Function&& function,
-                void* context = nullptr)
+                void* userData = nullptr)
             {
                 function(
                     entityID,
-                    context,
+                    userData,
                     ctype.template getEntityData<Types>(entityID)...
                 );
             }
@@ -532,11 +545,11 @@ namespace EC
                 const std::size_t& entityID,
                 CType& ctype,
                 Function* function,
-                void* context = nullptr)
+                void* userData = nullptr)
             {
                 (*function)(
                     entityID,
-                    context,
+                    userData,
                     ctype.template getEntityData<Types>(entityID)...
                 );
             }
@@ -546,13 +559,13 @@ namespace EC
                 const std::size_t& entityID,
                 CType& ctype,
                 Function&& function,
-                void* context = nullptr) const
+                void* userData = nullptr) const
             {
                 ForMatchingSignatureHelper<Types...>::call(
                     entityID,
                     ctype,
                     std::forward<Function>(function),
-                    context);
+                    userData);
             }
 
             template <typename CType, typename Function>
@@ -560,13 +573,13 @@ namespace EC
                 const std::size_t& entityID,
                 CType& ctype,
                 Function* function,
-                void* context = nullptr) const
+                void* userData = nullptr) const
             {
                 ForMatchingSignatureHelper<Types...>::callPtr(
                     entityID,
                     ctype,
                     function,
-                    context);
+                    userData);
             }
         };
 
@@ -583,14 +596,15 @@ namespace EC
 
             The second parameter is default nullptr and will be passed to the
             function call as the second parameter as a means of providing
-            context (useful when the function is not a lambda function). The
-            third parameter is default 1 (not multi-threaded). If the third
-            parameter threadCount is set to a value greater than 1, then
-            threadCount threads will be used.  Note that multi-threading is
-            based on splitting the task of calling the function across sections
-            of entities. Thus if there are only a small amount of entities in
-            the manager, then using multiple threads may not have as great of a
-            speed-up.
+            context (useful when the function is not a lambda function).
+
+            The third parameter is default false (not multi-threaded).
+            Otherwise, if true, then the thread pool will be used to call the
+            given function in parallel across all entities. Note that
+            multi-threading is based on splitting the task of calling the
+            function across sections of entities. Thus if there are only a small
+            amount of entities in the manager, then using multiple threads may
+            not have as great of a speed-up.
 
             Example:
             \code{.cpp}
@@ -611,8 +625,8 @@ namespace EC
         */
         template <typename Signature, typename Function>
         void forMatchingSignature(Function&& function,
-            void* context = nullptr,
-            std::size_t threadCount = 1)
+            void* userData = nullptr,
+            const bool useThreadPool = false)
         {
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
@@ -623,7 +637,7 @@ namespace EC
 
             BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
-            if(threadCount <= 1)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -636,53 +650,54 @@ namespace EC
                         == signatureBitset)
                     {
                         Helper::call(i, *this,
-                            std::forward<Function>(function), context);
+                            std::forward<Function>(function), userData);
                     }
                 }
             }
             else
             {
-                std::vector<std::thread> threads(threadCount);
-                std::size_t s = currentSize / threadCount;
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
+                using TPFnDataType = std::tuple<Manager*, EntitiesType*, BitsetType*, std::array<std::size_t, 2>, void*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                std::size_t s = currentSize / ThreadCount;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == threadCount - 1)
-                    {
+                    if(i == ThreadCount - 1) {
                         end = currentSize;
-                    }
-                    else
-                    {
+                    } else {
                         end = s * (i + 1);
                     }
-                    threads[i] = std::thread(
-                        [this, &function, &signatureBitset, &context]
-                            (std::size_t begin,
-                            std::size_t end) {
-                        for(std::size_t i = begin; i < end; ++i)
-                        {
-                            if(!std::get<bool>(this->entities[i]))
-                            {
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = &entities;
+                    std::get<2>(fnDataAr.at(i)) = &signatureBitset;
+                    std::get<3>(fnDataAr.at(i)) = {begin, end};
+                    std::get<4>(fnDataAr.at(i)) = userData;
+                    threadPool->queueFn([&function] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        for(std::size_t i = std::get<3>(*data).at(0);
+                                i < std::get<3>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
                                 continue;
                             }
 
-                            if((signatureBitset
-                                    & std::get<BitsetType>(entities[i]))
-                                == signatureBitset)
-                            {
-                                Helper::call(i, *this,
-                                    std::forward<Function>(function), context);
+                            if((*std::get<2>(*data)
+                                    & std::get<BitsetType>(
+                                        std::get<1>(*data)->at(i)))
+                                    == *std::get<2>(*data)) {
+                                Helper::call(i, *std::get<0>(*data), std::forward<Function>(function), std::get<4>(*data));
                             }
                         }
-                    },
-                        begin,
-                        end);
+                    }, &fnDataAr.at(i));
                 }
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
-                    threads[i].join();
-                }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -698,14 +713,15 @@ namespace EC
 
             The second parameter is default nullptr and will be passed to the
             function call as the second parameter as a means of providing
-            context (useful when the function is not a lambda function). The
-            third parameter is default 1 (not multi-threaded). If the third
-            parameter threadCount is set to a value greater than 1, then
-            threadCount threads will be used. Note that multi-threading is based
-            on splitting the task of calling the function across sections of
-            entities. Thus if there are only a small amount of entities in the
-            manager, then using multiple threads may not have as great of a
-            speed-up.
+            context (useful when the function is not a lambda function).
+
+            The third parameter is default false (not multi-threaded).
+            Otherwise, if true, then the thread pool will be used to call the
+            given function in parallel across all entities. Note that
+            multi-threading is based on splitting the task of calling the
+            function across sections of entities. Thus if there are only a small
+            amount of entities in the manager, then using multiple threads may
+            not have as great of a speed-up.
 
             Example:
             \code{.cpp}
@@ -728,8 +744,8 @@ namespace EC
         */
         template <typename Signature, typename Function>
         void forMatchingSignaturePtr(Function* function,
-            void* context = nullptr,
-            std::size_t threadCount = 1)
+            void* userData = nullptr,
+            const bool useThreadPool = false)
         {
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
@@ -740,7 +756,7 @@ namespace EC
 
             BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
-            if(threadCount <= 1)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -752,52 +768,55 @@ namespace EC
                     if((signatureBitset & std::get<BitsetType>(entities[i]))
                         == signatureBitset)
                     {
-                        Helper::callPtr(i, *this, function, context);
+                        Helper::callPtr(i, *this, function, userData);
                     }
                 }
             }
             else
             {
-                std::vector<std::thread> threads(threadCount);
-                std::size_t s = currentSize / threadCount;
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
+                using TPFnDataType = std::tuple<Manager*, EntitiesType*, BitsetType*, std::array<std::size_t, 2>, void*, Function*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                std::size_t s = currentSize / ThreadCount;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == threadCount - 1)
-                    {
+                    if(i == ThreadCount - 1) {
                         end = currentSize;
-                    }
-                    else
-                    {
+                    } else {
                         end = s * (i + 1);
                     }
-                    threads[i] = std::thread(
-                        [this, &function, &signatureBitset, &context]
-                            (std::size_t begin,
-                            std::size_t end) {
-                        for(std::size_t i = begin; i < end; ++i)
-                        {
-                            if(!std::get<bool>(this->entities[i]))
-                            {
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = &entities;
+                    std::get<2>(fnDataAr.at(i)) = &signatureBitset;
+                    std::get<3>(fnDataAr.at(i)) = {begin, end};
+                    std::get<4>(fnDataAr.at(i)) = userData;
+                    std::get<5>(fnDataAr.at(i)) = function;
+                    threadPool->queueFn([] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        for(std::size_t i = std::get<3>(*data).at(0);
+                                i < std::get<3>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
                                 continue;
                             }
 
-                            if((signatureBitset
-                                    & std::get<BitsetType>(entities[i]))
-                                == signatureBitset)
-                            {
-                                Helper::callPtr(i, *this, function, context);
+                            if((*std::get<2>(*data)
+                                    & std::get<BitsetType>(
+                                        std::get<1>(*data)->at(i)))
+                                    == *std::get<2>(*data)) {
+                                Helper::callPtr(i, *std::get<0>(*data), std::get<5>(*data), std::get<4>(*data));
                             }
                         }
-                    },
-                        begin,
-                        end);
+                    }, &fnDataAr.at(i));
                 }
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
-                    threads[i].join();
-                }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -861,7 +880,7 @@ namespace EC
         template <typename Signature, typename Function>
         std::size_t addForMatchingFunction(
             Function&& function,
-            void* context = nullptr)
+            void* userData = nullptr)
         {
             while(forMatchingFunctions.find(functionIndex)
                 != forMatchingFunctions.end())
@@ -884,55 +903,64 @@ namespace EC
                 functionIndex,
                 std::make_tuple(
                     signatureBitset,
-                    context,
+                    userData,
                     [function, helper, this]
-                        (std::size_t threadCount,
+                        (const bool useThreadPool,
                         std::vector<std::size_t> matching,
-                        void* context)
+                        void* userData)
                 {
-                    if(threadCount <= 1 || matching.size() < threadCount)
+                    if(!useThreadPool || !threadPool)
                     {
                         for(auto eid : matching)
                         {
                             if(isAlive(eid))
                             {
                                 helper.callInstancePtr(
-                                    eid, *this, &function, context);
+                                    eid, *this, &function, userData);
                             }
                         }
                     }
                     else
                     {
-                        std::vector<std::thread> threads(threadCount);
-                        std::size_t s = matching.size() / threadCount;
-                        for(std::size_t i = 0; i < threadCount; ++ i)
-                        {
+                        using TPFnDataType = std::tuple<Manager*, EntitiesType*, std::array<std::size_t, 2>, void*, const std::vector<std::size_t>*>;
+                        std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                        std::size_t s = matching.size() / ThreadCount;
+                        for(std::size_t i = 0; i < ThreadCount; ++i) {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == threadCount - 1) {
+                            if(i == ThreadCount - 1) {
                                 end = matching.size();
                             } else {
                                 end = s * (i + 1);
                             }
-                            threads[i] = std::thread(
-                                [this, &function, &helper, &context, &matching]
-                                    (std::size_t begin,
-                                    std::size_t end) {
-                                for(std::size_t j = begin; j < end; ++j)
-                                {
-                                    if(isAlive(matching[j]))
-                                    {
+                            if(begin == end) {
+                                continue;
+                            }
+                            std::get<0>(fnDataAr.at(i)) = this;
+                            std::get<1>(fnDataAr.at(i)) = &entities;
+                            std::get<2>(fnDataAr.at(i)) = {begin, end};
+                            std::get<3>(fnDataAr.at(i)) = userData;
+                            std::get<4>(fnDataAr.at(i)) = &matching;
+                            threadPool->queueFn([function, helper] (void* ud) {
+                                auto *data = static_cast<TPFnDataType*>(ud);
+                                for(std::size_t i = std::get<2>(*data).at(0);
+                                        i < std::get<2>(*data).at(1);
+                                        ++i) {
+                                    if(std::get<0>(*data)->isAlive(std::get<4>(*data)->at(i))) {
                                         helper.callInstancePtr(
-                                            matching[j], *this, &function, context);
+                                            std::get<4>(*data)->at(i),
+                                            *std::get<0>(*data),
+                                            &function,
+                                            std::get<3>(*data));
                                     }
                                 }
-                            },
-                            begin, end);
+                            }, &fnDataAr.at(i));
                         }
-                        for(std::size_t i = 0; i < threadCount; ++i)
-                        {
-                            threads[i].join();
-                        }
+                        threadPool->wakeThreads();
+                        do {
+                            std::this_thread::sleep_for(std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
                     }
                 })));
 
@@ -941,11 +969,11 @@ namespace EC
 
     private:
         std::vector<std::vector<std::size_t> > getMatchingEntities(
-            std::vector<BitsetType*> bitsets, std::size_t threadCount = 1)
+            std::vector<BitsetType*> bitsets, const bool useThreadPool = false)
         {
             std::vector<std::vector<std::size_t> > matchingV(bitsets.size());
 
-            if(threadCount <= 1 || currentSize <= threadCount)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t i = 0; i < currentSize; ++i)
                 {
@@ -965,64 +993,53 @@ namespace EC
             }
             else
             {
-                std::vector<std::thread> threads(threadCount);
-                std::size_t s = currentSize / threadCount;
-                std::mutex mutex;
+                using TPFnDataType = std::tuple<Manager*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> >*, const std::vector<BitsetType*>*, EntitiesType*, std::mutex*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
 
-                if(s == 0) {
-                    for(std::size_t i = 0; i < currentSize; ++i) {
-                        threads[i] = std::thread(
-                            [this, &matchingV, &bitsets, &mutex] (std::size_t idx) {
-                            if(!isAlive(idx)) {
-                                return;
+                std::size_t s = currentSize / ThreadCount;
+                std::mutex mutex;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                    std::size_t begin = s * i;
+                    std::size_t end;
+                    if(i == ThreadCount - 1) {
+                        end = currentSize;
+                    } else {
+                        end = s * (i + 1);
+                    }
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = {begin, end};
+                    std::get<2>(fnDataAr.at(i)) = &matchingV;
+                    std::get<3>(fnDataAr.at(i)) = &bitsets;
+                    std::get<4>(fnDataAr.at(i)) = &entities;
+                    std::get<5>(fnDataAr.at(i)) = &mutex;
+                    threadPool->queueFn([] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        for(std::size_t i = std::get<1>(*data).at(0);
+                                i < std::get<1>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
+                                continue;
                             }
-                            for(std::size_t k = 0; k < bitsets.size(); ++k)
-                            {
-                                if(((*bitsets[k]) &
-                                    std::get<BitsetType>(entities[idx]))
-                                   == (*bitsets[k]))
-                                {
-                                    std::lock_guard<std::mutex> guard(mutex);
-                                    matchingV[k].push_back(idx);
+                            for(std::size_t j = 0;
+                                    j < std::get<3>(*data)->size();
+                                    ++j) {
+                                if(((*std::get<3>(*data)->at(j))
+                                            & std::get<BitsetType>(std::get<4>(*data)->at(i)))
+                                        == (*std::get<3>(*data)->at(j))) {
+                                    std::lock_guard<std::mutex> lock(*std::get<5>(*data));
+                                    std::get<2>(*data)->at(j).push_back(i);
                                 }
                             }
-                        }, i);
-                    }
-                    for(std::size_t i = 0; i < currentSize; ++i) {
-                        threads[i].join();
-                    }
-                } else {
-                    for (std::size_t i = 0; i < threadCount; ++i) {
-                        std::size_t begin = s * i;
-                        std::size_t end;
-                        if (i == threadCount - 1) {
-                            end = currentSize;
-                        } else {
-                            end = s * (i + 1);
                         }
-
-                        threads[i] = std::thread(
-                                [this, &matchingV, &bitsets, &mutex]
-                                        (std::size_t begin, std::size_t end) {
-                                    for (std::size_t j = begin; j < end; ++j) {
-                                        if (!isAlive(j)) {
-                                            continue;
-                                        }
-                                        for (std::size_t k = 0; k < bitsets.size(); ++k) {
-                                            if (((*bitsets[k]) &
-                                                 std::get<BitsetType>(entities[j]))
-                                                == (*bitsets[k])) {
-                                                std::lock_guard<std::mutex> guard(mutex);
-                                                matchingV[k].push_back(j);
-                                            }
-                                        }
-                                    }
-                                }, begin, end);
-                    }
-                    for (std::size_t i = 0; i < threadCount; ++i) {
-                        threads[i].join();
-                    }
+                    }, &fnDataAr.at(i));
                 }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
 
             return matchingV;
@@ -1033,12 +1050,13 @@ namespace EC
         /*!
             \brief Call all stored functions.
 
-            The first (and only) parameter can be optionally used to specify the
-            number of threads to use when calling the functions. Otherwise, this
-            function is by default not multi-threaded.
-            Note that multi-threading is based on splitting the task of calling
-            the functions across sections of entities. Thus if there are only
-            a small amount of entities in the manager, then using multiple
+            The first (and only) parameter can be optionally used to enable the
+            use of the internal ThreadPool to call all stored functions in
+            parallel. Using the value false (which is the default) will not use
+            the ThreadPool and run all stored functions sequentially on the main
+            thread.  Note that multi-threading is based on splitting the task of
+            calling the functions across sections of entities. Thus if there are
+            only a small amount of entities in the manager, then using multiple
             threads may not have as great of a speed-up.
 
             Example:
@@ -1060,7 +1078,7 @@ namespace EC
                 manager.clearForMatchingFunctions();
             \endcode
         */
-        void callForMatchingFunctions(std::size_t threadCount = 1)
+        void callForMatchingFunctions(const bool useThreadPool = false)
         {
             std::vector<BitsetType*> bitsets;
             for(auto iter = forMatchingFunctions.begin();
@@ -1071,7 +1089,7 @@ namespace EC
             }
 
             std::vector<std::vector<std::size_t> > matching =
-                getMatchingEntities(bitsets, threadCount);
+                getMatchingEntities(bitsets, useThreadPool);
 
             std::size_t i = 0;
             for(auto iter = forMatchingFunctions.begin();
@@ -1079,20 +1097,21 @@ namespace EC
                 ++iter)
             {
                 std::get<2>(iter->second)(
-                    threadCount, matching[i++], std::get<1>(iter->second));
+                    useThreadPool, matching[i++], std::get<1>(iter->second));
             }
         }
 
         /*!
             \brief Call a specific stored function.
 
-            A second parameter can be optionally used to specify the number
-            of threads to use when calling the function. Otherwise, this
-            function is by default not multi-threaded.
-            Note that multi-threading is based on splitting the task of calling
-            the function across sections of entities. Thus if there are only
-            a small amount of entities in the manager, then using multiple
-            threads may not have as great of a speed-up.
+            The second parameter can be optionally used to enable the use of the
+            internal ThreadPool to call the stored function in parallel. Using
+            the value false (which is the default) will not use the ThreadPool
+            and run the stored function sequentially on the main thread.  Note
+            that multi-threading is based on splitting the task of calling the
+            functions across sections of entities. Thus if there are only a
+            small amount of entities in the manager, then using multiple threads
+            may not have as great of a speed-up.
 
             Example:
             \code{.cpp}
@@ -1112,7 +1131,7 @@ namespace EC
             \return False if a function with the given id does not exist.
         */
         bool callForMatchingFunction(std::size_t id,
-            std::size_t threadCount = 1)
+                                     const bool useThreadPool = false)
         {
             auto iter = forMatchingFunctions.find(id);
             if(iter == forMatchingFunctions.end())
@@ -1121,9 +1140,9 @@ namespace EC
             }
             std::vector<std::vector<std::size_t> > matching =
                 getMatchingEntities(std::vector<BitsetType*>{
-                    &std::get<BitsetType>(iter->second)}, threadCount);
+                    &std::get<BitsetType>(iter->second)}, useThreadPool);
             std::get<2>(iter->second)(
-                threadCount, matching[0], std::get<1>(iter->second));
+                useThreadPool, matching[0], std::get<1>(iter->second));
             return true;
         }
 
@@ -1265,12 +1284,12 @@ namespace EC
 
             \return True if id is valid and context was updated
         */
-        bool changeForMatchingFunctionContext(std::size_t id, void* context)
+        bool changeForMatchingFunctionContext(std::size_t id, void* userData)
         {
             auto f = forMatchingFunctions.find(id);
             if(f != forMatchingFunctions.end())
             {
-                std::get<1>(f->second) = context;
+                std::get<1>(f->second) = userData;
                 return true;
             }
             return false;
@@ -1300,6 +1319,14 @@ namespace EC
             The second parameter (default nullptr) will be provided to every
             function call as a void* (context).
 
+            The third parameter is default false (not multi-threaded).
+            Otherwise, if true, then the thread pool will be used to call the
+            given function in parallel across all entities. Note that
+            multi-threading is based on splitting the task of calling the
+            function across sections of entities. Thus if there are only a small
+            amount of entities in the manager, then using multiple threads may
+            not have as great of a speed-up.
+
             This function was created for the use case where there are many
             entities in the system which can cause multiple calls to
             forMatchingSignature to be slow due to the overhead of iterating
@@ -1319,11 +1346,11 @@ namespace EC
         template <typename SigList, typename FTuple>
         void forMatchingSignatures(
             FTuple fTuple,
-            void* context = nullptr,
-            const std::size_t threadCount = 1)
+            void* userData = nullptr,
+            const bool useThreadPool = false)
         {
-            std::vector<std::vector<std::size_t> > multiMatchingEntities(
-                SigList::size);
+            std::vector<std::vector<std::size_t> >
+                multiMatchingEntities(SigList::size);
             BitsetType signatureBitsets[SigList::size];
 
             // generate bitsets for each signature
@@ -1335,7 +1362,7 @@ namespace EC
             });
 
             // find and store entities matching signatures
-            if(threadCount <= 1)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t eid = 0; eid < currentSize; ++eid)
                 {
@@ -1356,56 +1383,57 @@ namespace EC
             }
             else
             {
-                std::vector<std::thread> threads(threadCount);
-                std::mutex mutexes[SigList::size];
-                std::size_t s = currentSize / threadCount;
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
+                using TPFnDataType = std::tuple<Manager*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> >*, BitsetType*, std::mutex*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                std::mutex mutex;
+                std::size_t s = currentSize / ThreadCount;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == threadCount - 1)
-                    {
+                    if(i == ThreadCount - 1) {
                         end = currentSize;
-                    }
-                    else
-                    {
+                    } else {
                         end = s * (i + 1);
                     }
-                    threads[i] = std::thread(
-                    [this, &mutexes, &multiMatchingEntities, &signatureBitsets]
-                    (std::size_t begin, std::size_t end)
-                    {
-                        for(std::size_t j = begin; j < end; ++j)
-                        {
-                            if(!isAlive(j))
-                            {
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = {begin, end};
+                    std::get<2>(fnDataAr.at(i)) = &multiMatchingEntities;
+                    std::get<3>(fnDataAr.at(i)) = signatureBitsets;
+                    std::get<4>(fnDataAr.at(i)) = &mutex;
+
+                    threadPool->queueFn([] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        for(std::size_t i = std::get<1>(*data).at(0);
+                                i < std::get<1>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
                                 continue;
                             }
-                            for(std::size_t k = 0; k < SigList::size; ++k)
-                            {
-                                if((signatureBitsets[k]
-                                    & std::get<BitsetType>(entities[j]))
-                                        == signatureBitsets[k])
-                                {
-                                    std::lock_guard<std::mutex> guard(
-                                        mutexes[k]);
-                                    multiMatchingEntities[k].push_back(j);
+                            for(std::size_t j = 0; j < SigList::size; ++j) {
+                                if((std::get<3>(*data)[j] & std::get<BitsetType>(std::get<0>(*data)->entities[i]))
+                                        == std::get<3>(*data)[j]) {
+                                    std::lock_guard<std::mutex> lock(*std::get<4>(*data));
+                                    std::get<2>(*data)->at(j).push_back(i);
                                 }
                             }
                         }
-                    }, begin, end);
+                    }, &fnDataAr.at(i));
                 }
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
-                    threads[i].join();
-                }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
 
             // call functions on matching entities
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
                 fTuple,
-                [this, &multiMatchingEntities, &threadCount, &context]
+                [this, &multiMatchingEntities, useThreadPool, &userData]
                 (auto sig, auto func, auto index)
                 {
                     using SignatureComponents =
@@ -1415,56 +1443,52 @@ namespace EC
                         EC::Meta::Morph<
                             SignatureComponents,
                             ForMatchingSignatureHelper<> >;
-                    if(threadCount <= 1)
-                    {
-                        for(const auto& id : multiMatchingEntities[index])
-                        {
-                            if(isAlive(id))
-                            {
-                                Helper::call(id, *this, func, context);
+                    if(!useThreadPool || !threadPool) {
+                        for(const auto& id : multiMatchingEntities[index]) {
+                            if(isAlive(id)) {
+                                Helper::call(id, *this, func, userData);
                             }
                         }
-                    }
-                    else
-                    {
-                        std::vector<std::thread> threads(threadCount);
+                    } else {
+                        using TPFnType = std::tuple<Manager*, void*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> > *, std::size_t>;
+                        std::array<TPFnType, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
-                            / threadCount;
-                        for(std::size_t i = 0; i < threadCount; ++i)
-                        {
+                            / ThreadCount;
+                        for(unsigned int i = 0; i < ThreadCount; ++i) {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == threadCount - 1)
-                            {
+                            if(i == ThreadCount - 1) {
                                 end = multiMatchingEntities[index].size();
-                            }
-                            else
-                            {
+                            } else {
                                 end = s * (i + 1);
                             }
-                            threads[i] = std::thread(
-                            [this, &multiMatchingEntities, &index, &func,
-                                &context]
-                            (std::size_t begin, std::size_t end)
-                            {
-                                for(std::size_t j = begin; j < end;
-                                    ++j)
-                                {
-                                    if(isAlive(multiMatchingEntities[index][j]))
-                                    {
+                            if(begin == end) {
+                                continue;
+                            }
+                            std::get<0>(fnDataAr.at(i)) = this;
+                            std::get<1>(fnDataAr.at(i)) = userData;
+                            std::get<2>(fnDataAr.at(i)) = {begin, end};
+                            std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
+                            std::get<4>(fnDataAr.at(i)) = index;
+                            threadPool->queueFn([&func] (void *ud) {
+                                auto *data = static_cast<TPFnType*>(ud);
+                                for(std::size_t i = std::get<2>(*data).at(0);
+                                        i < std::get<2>(*data).at(1);
+                                        ++i) {
+                                    if(std::get<0>(*data)->isAlive(std::get<3>(*data)->at(std::get<4>(*data)).at(i))) {
                                         Helper::call(
-                                            multiMatchingEntities[index][j],
-                                            *this,
+                                            std::get<3>(*data)->at(std::get<4>(*data)).at(i),
+                                            *std::get<0>(*data),
                                             func,
-                                            context);
+                                            std::get<1>(*data));
                                     }
                                 }
-                            }, begin, end);
+                            }, &fnDataAr.at(i));
                         }
-                        for(std::size_t i = 0; i < threadCount; ++i)
-                        {
-                            threads[i].join();
-                        }
+                        threadPool->wakeThreads();
+                        do {
+                            std::this_thread::sleep_for(std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
@@ -1497,6 +1521,14 @@ namespace EC
             The second parameter (default nullptr) will be provided to every
             function call as a void* (context).
 
+            The third parameter is default false (not multi-threaded).
+            Otherwise, if true, then the thread pool will be used to call the
+            given function in parallel across all entities. Note that
+            multi-threading is based on splitting the task of calling the
+            function across sections of entities. Thus if there are only a small
+            amount of entities in the manager, then using multiple threads may
+            not have as great of a speed-up.
+
             This function was created for the use case where there are many
             entities in the system which can cause multiple calls to
             forMatchingSignature to be slow due to the overhead of iterating
@@ -1515,8 +1547,8 @@ namespace EC
         */
         template <typename SigList, typename FTuple>
         void forMatchingSignaturesPtr(FTuple fTuple,
-            void* context = nullptr,
-            std::size_t threadCount = 1)
+            void* userData = nullptr,
+            const bool useThreadPool = false)
         {
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
                 SigList::size);
@@ -1531,7 +1563,7 @@ namespace EC
             });
 
             // find and store entities matching signatures
-            if(threadCount <= 1)
+            if(!useThreadPool || !threadPool)
             {
                 for(std::size_t eid = 0; eid < currentSize; ++eid)
                 {
@@ -1552,56 +1584,57 @@ namespace EC
             }
             else
             {
-                std::vector<std::thread> threads(threadCount);
-                std::mutex mutexes[SigList::size];
-                std::size_t s = currentSize / threadCount;
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
+                using TPFnDataType = std::tuple<Manager*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> >*, BitsetType*, std::mutex*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                std::mutex mutex;
+                std::size_t s = currentSize / ThreadCount;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == threadCount - 1)
-                    {
+                    if(i == ThreadCount - 1) {
                         end = currentSize;
-                    }
-                    else
-                    {
+                    } else {
                         end = s * (i + 1);
                     }
-                    threads[i] = std::thread(
-                    [this, &mutexes, &multiMatchingEntities, &signatureBitsets]
-                    (std::size_t begin, std::size_t end)
-                    {
-                        for(std::size_t j = begin; j < end; ++j)
-                        {
-                            if(!isAlive(j))
-                            {
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = {begin, end};
+                    std::get<2>(fnDataAr.at(i)) = &multiMatchingEntities;
+                    std::get<3>(fnDataAr.at(i)) = signatureBitsets;
+                    std::get<4>(fnDataAr.at(i)) = &mutex;
+
+                    threadPool->queueFn([] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        for(std::size_t i = std::get<1>(*data).at(0);
+                                i < std::get<1>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
                                 continue;
                             }
-                            for(std::size_t k = 0; k < SigList::size; ++k)
-                            {
-                                if((signatureBitsets[k]
-                                    & std::get<BitsetType>(entities[j]))
-                                        == signatureBitsets[k])
-                                {
-                                    std::lock_guard<std::mutex> guard(
-                                        mutexes[k]);
-                                    multiMatchingEntities[k].push_back(j);
+                            for(std::size_t j = 0; j < SigList::size; ++j) {
+                                if((std::get<3>(*data)[j] & std::get<BitsetType>(std::get<0>(*data)->entities[i]))
+                                        == std::get<3>(*data)[j]) {
+                                    std::lock_guard<std::mutex> lock(*std::get<4>(*data));
+                                    std::get<2>(*data)->at(j).push_back(i);
                                 }
                             }
                         }
-                    }, begin, end);
+                    }, &fnDataAr.at(i));
                 }
-                for(std::size_t i = 0; i < threadCount; ++i)
-                {
-                    threads[i].join();
-                }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
 
             // call functions on matching entities
             EC::Meta::forEachDoubleTuple(
                 EC::Meta::Morph<SigList, std::tuple<> >{},
                 fTuple,
-                [this, &multiMatchingEntities, &threadCount, &context]
+                [this, &multiMatchingEntities, useThreadPool, &userData]
                 (auto sig, auto func, auto index)
                 {
                     using SignatureComponents =
@@ -1611,56 +1644,57 @@ namespace EC
                         EC::Meta::Morph<
                             SignatureComponents,
                             ForMatchingSignatureHelper<> >;
-                    if(threadCount <= 1)
+                    if(!useThreadPool || !threadPool)
                     {
                         for(const auto& id : multiMatchingEntities[index])
                         {
                             if(isAlive(id))
                             {
-                                Helper::callPtr(id, *this, func, context);
+                                Helper::callPtr(id, *this, func, userData);
                             }
                         }
                     }
                     else
                     {
-                        std::vector<std::thread> threads(threadCount);
+                        using TPFnType = std::tuple<Manager*, void*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> > *, std::size_t>;
+                        std::array<TPFnType, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
-                            / threadCount;
-                        for(std::size_t i = 0; i < threadCount; ++i)
-                        {
+                            / ThreadCount;
+                        for(unsigned int i = 0; i < ThreadCount; ++i) {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == threadCount - 1)
-                            {
+                            if(i == ThreadCount - 1) {
                                 end = multiMatchingEntities[index].size();
-                            }
-                            else
-                            {
+                            } else {
                                 end = s * (i + 1);
                             }
-                            threads[i] = std::thread(
-                            [this, &multiMatchingEntities, &index, &func,
-                                &context]
-                            (std::size_t begin, std::size_t end)
-                            {
-                                for(std::size_t j = begin; j < end;
-                                    ++j)
-                                {
-                                    if(isAlive(multiMatchingEntities[index][j]))
-                                    {
+                            if(begin == end) {
+                                continue;
+                            }
+                            std::get<0>(fnDataAr.at(i)) = this;
+                            std::get<1>(fnDataAr.at(i)) = userData;
+                            std::get<2>(fnDataAr.at(i)) = {begin, end};
+                            std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
+                            std::get<4>(fnDataAr.at(i)) = index;
+                            threadPool->queueFn([&func] (void *ud) {
+                                auto *data = static_cast<TPFnType*>(ud);
+                                for(std::size_t i = std::get<2>(*data).at(0);
+                                        i < std::get<2>(*data).at(1);
+                                        ++i) {
+                                    if(std::get<0>(*data)->isAlive(std::get<3>(*data)->at(std::get<4>(*data)).at(i))) {
                                         Helper::callPtr(
-                                            multiMatchingEntities[index][j],
-                                            *this,
+                                            std::get<3>(*data)->at(std::get<4>(*data)).at(i),
+                                            *std::get<0>(*data),
                                             func,
-                                            context);
+                                            std::get<1>(*data));
                                     }
                                 }
-                            }, begin, end);
+                            }, &fnDataAr.at(i));
                         }
-                        for(std::size_t i = 0; i < threadCount; ++i)
-                        {
-                            threads[i].join();
-                        }
+                        threadPool->wakeThreads();
+                        do {
+                            std::this_thread::sleep_for(std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
@@ -1669,17 +1703,26 @@ namespace EC
         typedef void ForMatchingFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
 
         /*!
-         * \brief A simple version of forMatchingSignature()
-         *
-         * This function behaves like forMatchingSignature(), but instead of
-         * providing a function with each requested component as a parameter,
-         * the function receives a pointer to the manager itself, with which to
-         * query component/tag data.
+            \brief A simple version of forMatchingSignature()
+
+            This function behaves like forMatchingSignature(), but instead of
+            providing a function with each requested component as a parameter,
+            the function receives a pointer to the manager itself, with which to
+            query component/tag data.
+
+            The third parameter can be optionally used to enable the use of the
+            internal ThreadPool to call the function in parallel. Using the
+            value false (which is the default) will not use the ThreadPool and
+            run the function sequentially on all entities on the main thread.
+            Note that multi-threading is based on splitting the task of calling
+            the functions across sections of entities. Thus if there are only a
+            small amount of entities in the manager, then using multiple threads
+            may not have as great of a speed-up.
          */
         template <typename Signature>
-        void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, std::size_t threadCount = 1) {
+        void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, const bool useThreadPool = false) {
             const BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
-            if(threadCount <= 1) {
+            if(!useThreadPool || !threadPool) {
                 for(std::size_t i = 0; i < currentSize; ++i) {
                     if(!std::get<bool>(entities[i])) {
                         continue;
@@ -1688,52 +1731,67 @@ namespace EC
                     }
                 }
             } else {
-                std::vector<std::thread> threads(threadCount);
-                const std::size_t s = currentSize / threadCount;
-                for(std::size_t i = 0; i < threadCount; ++i) {
-                    const std::size_t begin = s * i;
-                    const std::size_t end =
-                        i == threadCount - 1 ?
-                            currentSize :
-                            s * (i + 1);
-                    threads[i] = std::thread(
-                        [this] (const std::size_t begin,
-                                const std::size_t end,
-                                const BitsetType signatureBitset,
-                                ForMatchingFn fn,
-                                void *userData) {
-                            for(std::size_t i = begin; i < end; ++i) {
-                                if(!std::get<bool>(entities[i])) {
-                                    continue;
-                                } else if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset) {
-                                    fn(i, this, userData);
-                                }
+                using TPFnDataType = std::tuple<Manager*, EntitiesType*, const BitsetType*, std::array<std::size_t, 2>, void*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                std::size_t s = currentSize / ThreadCount;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                    std::size_t begin = s * i;
+                    std::size_t end;
+                    if(i == ThreadCount - 1) {
+                        end = currentSize;
+                    } else {
+                        end = s * (i + 1);
+                    }
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = &entities;
+                    std::get<2>(fnDataAr.at(i)) = &signatureBitset;
+                    std::get<3>(fnDataAr.at(i)) = {begin, end};
+                    std::get<4>(fnDataAr.at(i)) = userData;
+                    threadPool->queueFn([&fn] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        for(std::size_t i = std::get<3>(*data).at(0);
+                                i < std::get<3>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
+                                continue;
+                            } else if((*std::get<2>(*data) & std::get<BitsetType>(std::get<1>(*data)->at(i))) == *std::get<2>(*data)) {
+                                fn(i, std::get<0>(*data), std::get<4>(*data));
                             }
-                        },
-                        begin,
-                        end,
-                        signatureBitset,
-                        fn,
-                        userData);
+                        }
+                    }, &fnDataAr.at(i));
                 }
-                for(std::size_t i = 0; i < threadCount; ++i) {
-                    threads[i].join();
-                }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
 
         /*!
-         * \brief Similar to forMatchingSimple(), but with a collection of Component/Tag indices
-         *
-         * This function works like forMatchingSimple(), but instead of
-         * providing template types that filter out non-matching entities, an
-         * iterable of indices must be provided which correlate to matching
-         * Component/Tag indices. The function given must match the previously
-         * defined typedef of type ForMatchingFn.
+            \brief Similar to forMatchingSimple(), but with a collection of Component/Tag indices
+
+            This function works like forMatchingSimple(), but instead of
+            providing template types that filter out non-matching entities, an
+            iterable of indices must be provided which correlate to matching
+            Component/Tag indices. The function given must match the previously
+            defined typedef of type ForMatchingFn.
+
+            The fourth parameter can be optionally used to enable the use of the
+            internal ThreadPool to call the function in parallel. Using the
+            value false (which is the default) will not use the ThreadPool and
+            run the function sequentially on all entities on the main thread.
+            Note that multi-threading is based on splitting the task of calling
+            the functions across sections of entities. Thus if there are only a
+            small amount of entities in the manager, then using multiple threads
+            may not have as great of a speed-up.
          */
         template <typename Iterable>
-        void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userPtr = nullptr, std::size_t threadCount = 1) {
-            if(threadCount <= 1) {
+        void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userData = nullptr, const bool useThreadPool = false) {
+            if(!useThreadPool || !threadPool) {
                 bool isValid;
                 for(std::size_t i = 0; i < currentSize; ++i) {
                     if(!std::get<bool>(entities[i])) {
@@ -1749,42 +1807,56 @@ namespace EC
                     }
                     if(!isValid) { continue; }
 
-                    fn(i, this, userPtr);
+                    fn(i, this, userData);
                 }
             } else {
-                std::vector<std::thread> threads(threadCount);
-                std::size_t s = currentSize / threadCount;
-                for(std::size_t i = 0; i < threadCount; ++i) {
+                using TPFnDataType = std::tuple<Manager*, EntitiesType*, Iterable*, std::array<std::size_t, 2>, void*>;
+                std::array<TPFnDataType, ThreadCount> fnDataAr;
+
+                std::size_t s = currentSize / ThreadCount;
+                for(std::size_t i = 0; i < ThreadCount; ++i) {
                     std::size_t begin = s * i;
-                    std::size_t end =
-                        i == threadCount - 1 ?
-                            currentSize :
-                            s * (i + 1);
-                    threads[i] = std::thread(
-                        [this, &fn, &iterable, userPtr] (std::size_t begin, std::size_t end) {
-                            bool isValid;
-                            for(std::size_t i = begin; i < end; ++i) {
-                                if(!std::get<bool>(this->entities[i])) {
-                                    continue;
-                                }
-
-                                isValid = true;
-                                for(const auto& integralValue : iterable) {
-                                    if(!std::get<BitsetType>(entities[i]).getCombinedBit(integralValue)) {
-                                        isValid = false;
-                                        break;
-                                    }
-                                }
-                                if(!isValid) { continue; }
-
-                                fn(i, this, userPtr);
+                    std::size_t end;
+                    if(i == ThreadCount - 1) {
+                        end = currentSize;
+                    } else {
+                        end = s * (i + 1);
+                    }
+                    if(begin == end) {
+                        continue;
+                    }
+                    std::get<0>(fnDataAr.at(i)) = this;
+                    std::get<1>(fnDataAr.at(i)) = &entities;
+                    std::get<2>(fnDataAr.at(i)) = &iterable;
+                    std::get<3>(fnDataAr.at(i)) = {begin, end};
+                    std::get<4>(fnDataAr.at(i)) = userData;
+                    threadPool->queueFn([&fn] (void *ud) {
+                        auto *data = static_cast<TPFnDataType*>(ud);
+                        bool isValid;
+                        for(std::size_t i = std::get<3>(*data).at(0);
+                                i < std::get<3>(*data).at(1);
+                                ++i) {
+                            if(!std::get<0>(*data)->isAlive(i)) {
+                                continue;
                             }
-                        },
-                    begin, end);
+                            isValid = true;
+                            for(const auto& integralValue : *std::get<2>(*data)) {
+                                if(!std::get<BitsetType>(std::get<1>(*data)->at(i)).getCombinedBit(integralValue)) {
+                                    isValid = false;
+                                    break;
+                                }
+                            }
+                            if(!isValid) { continue; }
+
+                            fn(i, std::get<0>(*data), std::get<4>(*data));
+
+                        }
+                    }, &fnDataAr.at(i));
                 }
-                for(std::size_t i = 0; i < threadCount; ++i) {
-                    threads[i].join();
-                }
+                threadPool->wakeThreads();
+                do {
+                    std::this_thread::sleep_for(std::chrono::microseconds(200));
+                } while(!threadPool->isQueueEmpty() && !threadPool->isAllThreadsWaiting());
             }
         }
     };

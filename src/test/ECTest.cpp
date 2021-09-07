@@ -464,7 +464,7 @@ TEST(EC, MultiThreaded)
             c->y = 2;
         },
         nullptr,
-        2
+        true
     );
 
     for(unsigned int i = 0; i < 17; ++i)
@@ -490,7 +490,7 @@ TEST(EC, MultiThreaded)
             c->y = 4;
         },
         nullptr,
-        8
+        true
     );
 
     for(unsigned int i = 0; i < 3; ++i)
@@ -516,7 +516,7 @@ TEST(EC, MultiThreaded)
         }
     );
 
-    manager.callForMatchingFunctions(2);
+    manager.callForMatchingFunctions(true);
 
     for(unsigned int i = 0; i < 17; ++i)
     {
@@ -531,7 +531,7 @@ TEST(EC, MultiThreaded)
         }
     );
 
-    manager.callForMatchingFunction(f1, 4);
+    manager.callForMatchingFunction(f1, true);
 
     for(unsigned int i = 0; i < 17; ++i)
     {
@@ -544,7 +544,7 @@ TEST(EC, MultiThreaded)
         manager.deleteEntity(i);
     }
 
-    manager.callForMatchingFunction(f0, 8);
+    manager.callForMatchingFunction(f0, true);
 
     for(unsigned int i = 0; i < 4; ++i)
     {
@@ -710,7 +710,7 @@ TEST(EC, ForMatchingSignatures)
             c0->y = 2;
         }),
         nullptr,
-        3
+        true
     );
     
     for(auto iter = cx.begin(); iter != cx.end(); ++iter)
@@ -850,7 +850,7 @@ TEST(EC, forMatchingPtrs)
         &func0
     );
     manager.forMatchingSignaturePtr<TypeList<C0, T0> >(
-        &func1
+        &func1, nullptr, true
     );
 
     for(auto eid : e)
@@ -1098,7 +1098,7 @@ TEST(EC, forMatchingSimple) {
             C0 *c0 = manager->getEntityData<C0>(id);
             c0->x += 10;
             c0->y += 10;
-        }, nullptr, 3);
+        }, nullptr, true);
 
     // verify
     {
@@ -1296,7 +1296,7 @@ TEST(EC, forMatchingIterableFn)
             c->x += 100;
             c->y += 100;
         };
-        manager.forMatchingIterable(iterable, fn, nullptr, 3);
+        manager.forMatchingIterable(iterable, fn, nullptr, true);
     }
 
     {
@@ -1322,7 +1322,7 @@ TEST(EC, forMatchingIterableFn)
             c->x += 1000;
             c->y += 1000;
         };
-        manager.forMatchingIterable(iterable, fn, nullptr, 3);
+        manager.forMatchingIterable(iterable, fn, nullptr, true);
     }
 
     {
@@ -1365,8 +1365,35 @@ TEST(EC, MultiThreadedForMatching) {
     EXPECT_TRUE(manager.isAlive(first));
     EXPECT_TRUE(manager.isAlive(second));
 
-    manager.callForMatchingFunction(fnIdx, 2);
+    manager.callForMatchingFunction(fnIdx, true);
 
     EXPECT_TRUE(manager.isAlive(first));
     EXPECT_FALSE(manager.isAlive(second));
+}
+
+TEST(EC, ManagerWithLowThreadCount) {
+    EC::Manager<ListComponentsAll, ListTagsAll, 1> manager;
+
+    std::array<std::size_t, 10> entities;
+    for(auto &id : entities) {
+        id = manager.addEntity();
+        manager.addComponent<C0>(id);
+    }
+
+    for(const auto &id : entities) {
+        auto *component = manager.getEntityComponent<C0>(id);
+        EXPECT_EQ(component->x, 0);
+        EXPECT_EQ(component->y, 0);
+    }
+
+    manager.forMatchingSignature<EC::Meta::TypeList<C0> >([] (std::size_t /*id*/, void* /*ud*/, C0 *c) {
+        c->x += 1;
+        c->y += 1;
+    }, nullptr, true);
+
+    for(const auto &id : entities) {
+        auto *component = manager.getEntityComponent<C0>(id);
+        EXPECT_EQ(component->x, 1);
+        EXPECT_EQ(component->y, 1);
+    }
 }

@@ -14,13 +14,17 @@ set(EntityComponentSystem_HEADERS
     EC/Meta/Meta.hpp
     EC/Bitset.hpp
     EC/Manager.hpp
-    EC/EC.hpp)
+    EC/EC.hpp
+    EC/ThreadPool.hpp
+)
 
 set(WillFailCompile_SOURCES
     test/WillFailCompileTest.cpp)
 
+find_package(Threads REQUIRED)
+
 add_library(EntityComponentSystem INTERFACE)
-target_link_libraries(EntityComponentSystem INTERFACE pthread)
+target_link_libraries(EntityComponentSystem INTERFACE ${CMAKE_THREAD_LIBS_INIT})
 target_include_directories(EntityComponentSystem INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 
@@ -48,7 +52,9 @@ if(GTEST_FOUND)
     set(UnitTests_SOURCES
         test/MetaTest.cpp
         test/ECTest.cpp
-        test/Main.cpp)
+        test/ThreadPoolTest.cpp
+        test/Main.cpp
+    )
 
     add_executable(UnitTests ${UnitTests_SOURCES})
     target_link_libraries(UnitTests EntityComponentSystem ${GTEST_LIBRARIES})
