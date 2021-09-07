@@ -175,7 +175,7 @@ public:
     /*!
         \brief Returns the ThreadCount that this class was created with.
      */
-    unsigned int getThreadCount() {
+    constexpr unsigned int getThreadCount() {
         return SIZE;
     }
 
