@@ -20,6 +20,12 @@ namespace Internal {
     using TPQueueType = std::queue<TPTupleType>;
 } // namespace Internal
 
+/*!
+    \brief Implementation of a Thread Pool.
+
+    Note that if SIZE is less than 2, then ThreadPool will not create threads and
+    run queued functions on the calling thread.
+*/
 template <unsigned int SIZE>
 class ThreadPool {
 public:
@@ -83,11 +89,27 @@ public:
         }
     }
 
+    /*!
+        \brief Queues a function to be called (doesn't start calling yet).
+
+        To run the queued functions, wakeThreads() must be called to wake the
+        waiting threads which will start pulling functions from the queue to be
+        called.
+    */
     void queueFn(std::function<void(void*)>&& fn, void *ud = nullptr) {
         std::lock_guard<std::mutex> lock(queueMutex);
         fnQueue.emplace(std::make_tuple(fn, ud));
     }
 
+    /*!
+        \brief Wakes waiting threads to start running queued functions.
+
+        If SIZE is less than 2, then this function call will block until all the
+        queued functions have been executed on the calling thread.
+
+        If SIZE is 2 or greater, then this function will return immediately after
+        waking one or all threads, depending on the given boolean parameter.
+    */
     void wakeThreads(bool wakeAll = true) {
         if(SIZE >= 2) {
             // wake threads to pull functions from queue and run them
@@ -118,11 +140,23 @@ public:
         }
     }
 
+    /*!
+        \brief Gets the number of waiting threads.
+
+        If all threads are waiting, this should equal ThreadCount.
+
+        If SIZE is less than 2, then this will always return 0.
+    */
     int getWaitCount() {
         std::lock_guard<std::mutex> lock(waitCountMutex);
         return waitCount;
     }
 
+    /*!
+        \brief Returns true if all threads are waiting.
+
+        If SIZE is less than 2, then this will always return true.
+    */
     bool isAllThreadsWaiting() {
         if(SIZE >= 2) {
             std::lock_guard<std::mutex> lock(waitCountMutex);
@@ -132,6 +166,9 @@ public:
         }
     }
 
+    /*!
+        \brief Returns true if the function queue is empty.
+    */
     bool isQueueEmpty() {
         std::lock_guard<std::mutex> lock(queueMutex);
         return fnQueue.empty();

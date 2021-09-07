@@ -49,12 +49,10 @@ namespace EC
         Note that all components must have a default constructor.
 
         An optional third template parameter may be given, which is the size of
-        the number of threads in the internal ThreadPool, and it must be at
-        least 2. If ThreadCount is 1 or less, the program will fail to compile.
-        Note that using the internal ThreadPool is optional; several member
-        functions of Manager accept a boolean indicating if the internal
-        ThreadPool is to be used. Always passing false for that value will
-        result in never using the ThreadPool.
+        the number of threads in the internal ThreadPool, and should be at
+        least 2. If ThreadCount is 1 or less, then the ThreadPool will not be
+        created and it will never be used, even if the "true" parameter is given
+        for functions that enable its usage.
 
         Example:
         \code{.cpp}
@@ -481,16 +479,16 @@ namespace EC
             ).template getTagBit<Tag>() = true;
         }
 
-    /*!
-        \brief Removes the given Tag from the given Entity.
+        /*!
+            \brief Removes the given Tag from the given Entity.
 
-        If the Entity does not have the Tag given, nothing will change.
+            If the Entity does not have the Tag given, nothing will change.
 
-        Example:
-        \code{.cpp}
-            manager.removeTag<T0>(entityID);
-        \endcode
-    */
+            Example:
+            \code{.cpp}
+                manager.removeTag<T0>(entityID);
+            \endcode
+        */
         template <typename Tag>
         void removeTag(const std::size_t& entityID)
         {
@@ -1319,6 +1317,14 @@ namespace EC
             The second parameter (default nullptr) will be provided to every
             function call as a void* (context).
 
+            The third parameter is default false (not multi-threaded).
+            Otherwise, if true, then the thread pool will be used to call the
+            given function in parallel across all entities. Note that
+            multi-threading is based on splitting the task of calling the
+            function across sections of entities. Thus if there are only a small
+            amount of entities in the manager, then using multiple threads may
+            not have as great of a speed-up.
+
             This function was created for the use case where there are many
             entities in the system which can cause multiple calls to
             forMatchingSignature to be slow due to the overhead of iterating
@@ -1513,6 +1519,14 @@ namespace EC
             The second parameter (default nullptr) will be provided to every
             function call as a void* (context).
 
+            The third parameter is default false (not multi-threaded).
+            Otherwise, if true, then the thread pool will be used to call the
+            given function in parallel across all entities. Note that
+            multi-threading is based on splitting the task of calling the
+            function across sections of entities. Thus if there are only a small
+            amount of entities in the manager, then using multiple threads may
+            not have as great of a speed-up.
+
             This function was created for the use case where there are many
             entities in the system which can cause multiple calls to
             forMatchingSignature to be slow due to the overhead of iterating
@@ -1687,12 +1701,21 @@ namespace EC
         typedef void ForMatchingFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
 
         /*!
-         * \brief A simple version of forMatchingSignature()
-         *
-         * This function behaves like forMatchingSignature(), but instead of
-         * providing a function with each requested component as a parameter,
-         * the function receives a pointer to the manager itself, with which to
-         * query component/tag data.
+            \brief A simple version of forMatchingSignature()
+
+            This function behaves like forMatchingSignature(), but instead of
+            providing a function with each requested component as a parameter,
+            the function receives a pointer to the manager itself, with which to
+            query component/tag data.
+
+            The third parameter can be optionally used to enable the use of the
+            internal ThreadPool to call the function in parallel. Using the
+            value false (which is the default) will not use the ThreadPool and
+            run the function sequentially on all entities on the main thread.
+            Note that multi-threading is based on splitting the task of calling
+            the functions across sections of entities. Thus if there are only a
+            small amount of entities in the manager, then using multiple threads
+            may not have as great of a speed-up.
          */
         template <typename Signature>
         void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, const bool useThreadPool = false) {
@@ -1747,13 +1770,22 @@ namespace EC
         }
 
         /*!
-         * \brief Similar to forMatchingSimple(), but with a collection of Component/Tag indices
-         *
-         * This function works like forMatchingSimple(), but instead of
-         * providing template types that filter out non-matching entities, an
-         * iterable of indices must be provided which correlate to matching
-         * Component/Tag indices. The function given must match the previously
-         * defined typedef of type ForMatchingFn.
+            \brief Similar to forMatchingSimple(), but with a collection of Component/Tag indices
+
+            This function works like forMatchingSimple(), but instead of
+            providing template types that filter out non-matching entities, an
+            iterable of indices must be provided which correlate to matching
+            Component/Tag indices. The function given must match the previously
+            defined typedef of type ForMatchingFn.
+
+            The fourth parameter can be optionally used to enable the use of the
+            internal ThreadPool to call the function in parallel. Using the
+            value false (which is the default) will not use the ThreadPool and
+            run the function sequentially on all entities on the main thread.
+            Note that multi-threading is based on splitting the task of calling
+            the functions across sections of entities. Thus if there are only a
+            small amount of entities in the manager, then using multiple threads
+            may not have as great of a speed-up.
          */
         template <typename Iterable>
         void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userData = nullptr, const bool useThreadPool = false) {
