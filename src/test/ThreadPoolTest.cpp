@@ -66,3 +66,14 @@ TEST(ECThreadPool, Simple) {
 
     ASSERT_EQ(data.load(), 11);
 }
+
+TEST(ECThreadPool, QueryCount) {
+    {
+        OneThreadPool oneP;
+        ASSERT_EQ(1, oneP.getThreadCount());
+    }
+    {
+        ThreeThreadPool threeP;
+        ASSERT_EQ(3, threeP.getThreadCount());
+    }
+}

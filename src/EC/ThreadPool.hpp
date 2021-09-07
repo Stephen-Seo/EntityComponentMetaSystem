@@ -172,6 +172,13 @@ public:
         return fnQueue.empty();
     }
 
+    /*!
+        \brief Returns the ThreadCount that this class was created with.
+     */
+    constexpr unsigned int getThreadCount() {
+        return SIZE;
+    }
+
 private:
     std::vector<std::thread> threads;
     std::atomic_bool isAlive;
