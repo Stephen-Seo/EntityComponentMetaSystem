@@ -49,6 +49,8 @@ struct Base
     {
         return 0;
     }
+
+    virtual ~Base() {}
 };
 
 struct Derived : public Base
