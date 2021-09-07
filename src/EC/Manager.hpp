@@ -59,7 +59,9 @@ namespace EC
             EC::Manager<TypeList<C0, C1, C2>, TypeList<T0, T1>> manager;
         \endcode
     */
-    template <typename ComponentsList, typename TagsList, unsigned int ThreadCount = 4>
+    template <typename ComponentsList,
+              typename TagsList,
+              unsigned int ThreadCount = 4>
     struct Manager
     {
     public:
@@ -654,8 +656,14 @@ namespace EC
             }
             else
             {
-                using TPFnDataType = std::tuple<Manager*, EntitiesType*, BitsetType*, std::array<std::size_t, 2>, void*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    EntitiesType *entities;
+                    BitsetType *signature;
+                    void *userData;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -669,33 +677,37 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = &entities;
-                    std::get<2>(fnDataAr.at(i)) = &signatureBitset;
-                    std::get<3>(fnDataAr.at(i)) = {begin, end};
-                    std::get<4>(fnDataAr.at(i)) = userData;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].signature = &signatureBitset;
+                    fnDataAr[i].userData = userData;
+
                     threadPool->queueFn([&function] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
-                        for(std::size_t i = std::get<3>(*data).at(0);
-                                i < std::get<3>(*data).at(1);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
                             }
 
-                            if((*std::get<2>(*data)
-                                    & std::get<BitsetType>(
-                                        std::get<1>(*data)->at(i)))
-                                    == *std::get<2>(*data)) {
-                                Helper::call(i, *std::get<0>(*data), std::forward<Function>(function), std::get<4>(*data));
+                            if(((*data->signature)
+                                        & std::get<BitsetType>(
+                                            data->entities->at(i)))
+                                    == *data->signature) {
+                                Helper::call(i,
+                                             *data->manager,
+                                             std::forward<Function>(function),
+                                             data->userData);
                             }
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -772,8 +784,15 @@ namespace EC
             }
             else
             {
-                using TPFnDataType = std::tuple<Manager*, EntitiesType*, BitsetType*, std::array<std::size_t, 2>, void*, Function*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    EntitiesType *entities;
+                    BitsetType *signature;
+                    void *userData;
+                    Function *fn;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -787,34 +806,37 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = &entities;
-                    std::get<2>(fnDataAr.at(i)) = &signatureBitset;
-                    std::get<3>(fnDataAr.at(i)) = {begin, end};
-                    std::get<4>(fnDataAr.at(i)) = userData;
-                    std::get<5>(fnDataAr.at(i)) = function;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].signature = &signatureBitset;
+                    fnDataAr[i].userData = userData;
+                    fnDataAr[i].fn = function;
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
-                        for(std::size_t i = std::get<3>(*data).at(0);
-                                i < std::get<3>(*data).at(1);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
                             }
 
-                            if((*std::get<2>(*data)
-                                    & std::get<BitsetType>(
-                                        std::get<1>(*data)->at(i)))
-                                    == *std::get<2>(*data)) {
-                                Helper::callPtr(i, *std::get<0>(*data), std::get<5>(*data), std::get<4>(*data));
+                            if(((*data->signature)
+                                        & std::get<BitsetType>(
+                                            data->entities->at(i)))
+                                    == *data->signature) {
+                                Helper::callPtr(i,
+                                                *data->manager,
+                                                data->fn,
+                                                data->userData);
                             }
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -920,8 +942,14 @@ namespace EC
                     }
                     else
                     {
-                        using TPFnDataType = std::tuple<Manager*, EntitiesType*, std::array<std::size_t, 2>, void*, const std::vector<std::size_t>*>;
-                        std::array<TPFnDataType, ThreadCount> fnDataAr;
+                        struct TPFnDataStruct {
+                            std::array<std::size_t, 2> range;
+                            Manager *manager;
+                            EntitiesType *entities;
+                            void *userData;
+                            const std::vector<std::size_t> *matching;
+                        };
+                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                         std::size_t s = matching.size() / ThreadCount;
                         for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -935,30 +963,33 @@ namespace EC
                             if(begin == end) {
                                 continue;
                             }
-                            std::get<0>(fnDataAr.at(i)) = this;
-                            std::get<1>(fnDataAr.at(i)) = &entities;
-                            std::get<2>(fnDataAr.at(i)) = {begin, end};
-                            std::get<3>(fnDataAr.at(i)) = userData;
-                            std::get<4>(fnDataAr.at(i)) = &matching;
-                            threadPool->queueFn([function, helper] (void* ud) {
-                                auto *data = static_cast<TPFnDataType*>(ud);
-                                for(std::size_t i = std::get<2>(*data).at(0);
-                                        i < std::get<2>(*data).at(1);
+                            fnDataAr[i].range = {begin, end};
+                            fnDataAr[i].manager = this;
+                            fnDataAr[i].entities = &entities;
+                            fnDataAr[i].userData = userData;
+                            fnDataAr[i].matching = &matching;
+                            threadPool->queueFn([&function, helper] (void* ud) {
+                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                for(std::size_t i = data->range[0];
+                                        i < data->range[1];
                                         ++i) {
-                                    if(std::get<0>(*data)->isAlive(std::get<4>(*data)->at(i))) {
+                                    if(data->manager->isAlive(
+                                            data->matching->at(i))) {
                                         helper.callInstancePtr(
-                                            std::get<4>(*data)->at(i),
-                                            *std::get<0>(*data),
+                                            data->matching->at(i),
+                                            *data->manager,
                                             &function,
-                                            std::get<3>(*data));
+                                            data->userData);
                                     }
                                 }
-                            }, &fnDataAr.at(i));
+                            }, &fnDataAr[i]);
                         }
                         threadPool->wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                            std::this_thread::sleep_for(
+                                    std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty()
+                            || !threadPool->isAllThreadsWaiting());
                     }
                 })));
 
@@ -991,8 +1022,15 @@ namespace EC
             }
             else
             {
-                using TPFnDataType = std::tuple<Manager*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> >*, const std::vector<BitsetType*>*, EntitiesType*, std::mutex*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    std::vector<std::vector<std::size_t> > *matchingV;
+                    const std::vector<BitsetType*> *bitsets;
+                    EntitiesType *entities;
+                    std::mutex *mutex;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 std::mutex mutex;
@@ -1007,37 +1045,38 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = {begin, end};
-                    std::get<2>(fnDataAr.at(i)) = &matchingV;
-                    std::get<3>(fnDataAr.at(i)) = &bitsets;
-                    std::get<4>(fnDataAr.at(i)) = &entities;
-                    std::get<5>(fnDataAr.at(i)) = &mutex;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].matchingV = &matchingV;
+                    fnDataAr[i].bitsets = &bitsets;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].mutex = &mutex;
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
-                        for(std::size_t i = std::get<1>(*data).at(0);
-                                i < std::get<1>(*data).at(1);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
                             }
-                            for(std::size_t j = 0;
-                                    j < std::get<3>(*data)->size();
+                            for(std::size_t j = 0; j < data->bitsets->size();
                                     ++j) {
-                                if(((*std::get<3>(*data)->at(j))
-                                            & std::get<BitsetType>(std::get<4>(*data)->at(i)))
-                                        == (*std::get<3>(*data)->at(j))) {
-                                    std::lock_guard<std::mutex> lock(*std::get<5>(*data));
-                                    std::get<2>(*data)->at(j).push_back(i);
+                                if((*data->bitsets->at(j)
+                                            & std::get<BitsetType>(
+                                                data->entities->at(i)))
+                                        == *data->bitsets->at(j)) {
+                                    std::lock_guard<std::mutex> lock(
+                                            *data->mutex);
+                                    data->matchingV->at(j).push_back(i);
                                 }
                             }
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
 
             return matchingV;
@@ -1381,8 +1420,15 @@ namespace EC
             }
             else
             {
-                using TPFnDataType = std::tuple<Manager*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> >*, BitsetType*, std::mutex*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    std::vector<std::vector<std::size_t> >*
+                        multiMatchingEntities;
+                    BitsetType *signatures;
+                    std::mutex *mutex;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::mutex mutex;
                 std::size_t s = currentSize / ThreadCount;
@@ -1397,34 +1443,38 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = {begin, end};
-                    std::get<2>(fnDataAr.at(i)) = &multiMatchingEntities;
-                    std::get<3>(fnDataAr.at(i)) = signatureBitsets;
-                    std::get<4>(fnDataAr.at(i)) = &mutex;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].multiMatchingEntities = &multiMatchingEntities;
+                    fnDataAr[i].signatures = signatureBitsets;
+                    fnDataAr[i].mutex = &mutex;
 
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
-                        for(std::size_t i = std::get<1>(*data).at(0);
-                                i < std::get<1>(*data).at(1);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
                             }
                             for(std::size_t j = 0; j < SigList::size; ++j) {
-                                if((std::get<3>(*data)[j] & std::get<BitsetType>(std::get<0>(*data)->entities[i]))
-                                        == std::get<3>(*data)[j]) {
-                                    std::lock_guard<std::mutex> lock(*std::get<4>(*data));
-                                    std::get<2>(*data)->at(j).push_back(i);
+                                if((data->signatures[j]
+                                                & std::get<BitsetType>(
+                                                    data->manager->entities[i]))
+                                        == data->signatures[j]) {
+                                    std::lock_guard<std::mutex> lock(
+                                        *data->mutex);
+                                    data->multiMatchingEntities->at(j)
+                                        .push_back(i);
                                 }
                             }
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
 
             // call functions on matching entities
@@ -1448,8 +1498,15 @@ namespace EC
                             }
                         }
                     } else {
-                        using TPFnType = std::tuple<Manager*, void*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> > *, std::size_t>;
-                        std::array<TPFnType, ThreadCount> fnDataAr;
+                        struct TPFnDataStruct {
+                            std::array<std::size_t, 2> range;
+                            std::size_t index;
+                            Manager *manager;
+                            void *userData;
+                            std::vector<std::vector<std::size_t> >*
+                                multiMatchingEntities;
+                        };
+                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
                             / ThreadCount;
                         for(unsigned int i = 0; i < ThreadCount; ++i) {
@@ -1463,30 +1520,35 @@ namespace EC
                             if(begin == end) {
                                 continue;
                             }
-                            std::get<0>(fnDataAr.at(i)) = this;
-                            std::get<1>(fnDataAr.at(i)) = userData;
-                            std::get<2>(fnDataAr.at(i)) = {begin, end};
-                            std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
-                            std::get<4>(fnDataAr.at(i)) = index;
+                            fnDataAr[i].range = {begin, end};
+                            fnDataAr[i].index = index;
+                            fnDataAr[i].manager = this;
+                            fnDataAr[i].userData = userData;
+                            fnDataAr[i].multiMatchingEntities =
+                                &multiMatchingEntities;
                             threadPool->queueFn([&func] (void *ud) {
-                                auto *data = static_cast<TPFnType*>(ud);
-                                for(std::size_t i = std::get<2>(*data).at(0);
-                                        i < std::get<2>(*data).at(1);
-                                        ++i) {
-                                    if(std::get<0>(*data)->isAlive(std::get<3>(*data)->at(std::get<4>(*data)).at(i))) {
+                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                for(std::size_t i = data->range[0];
+                                        i < data->range[1]; ++i) {
+                                    if(data->manager->isAlive(
+                                            data->multiMatchingEntities
+                                                ->at(data->index).at(i))) {
                                         Helper::call(
-                                            std::get<3>(*data)->at(std::get<4>(*data)).at(i),
-                                            *std::get<0>(*data),
+                                            data->multiMatchingEntities
+                                                ->at(data->index).at(i),
+                                            *data->manager,
                                             func,
-                                            std::get<1>(*data));
+                                            data->userData);
                                     }
                                 }
-                            }, &fnDataAr.at(i));
+                            }, &fnDataAr[i]);
                         }
                         threadPool->wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                            std::this_thread::sleep_for(
+                                std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty()
+                            || !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
@@ -1582,8 +1644,15 @@ namespace EC
             }
             else
             {
-                using TPFnDataType = std::tuple<Manager*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> >*, BitsetType*, std::mutex*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    std::vector<std::vector<std::size_t> > *
+                        multiMatchingEntities;
+                    BitsetType *bitsets;
+                    std::mutex *mutex;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::mutex mutex;
                 std::size_t s = currentSize / ThreadCount;
@@ -1598,34 +1667,38 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = {begin, end};
-                    std::get<2>(fnDataAr.at(i)) = &multiMatchingEntities;
-                    std::get<3>(fnDataAr.at(i)) = signatureBitsets;
-                    std::get<4>(fnDataAr.at(i)) = &mutex;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].multiMatchingEntities = &multiMatchingEntities;
+                    fnDataAr[i].bitsets = signatureBitsets;
+                    fnDataAr[i].mutex = &mutex;
 
                     threadPool->queueFn([] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
-                        for(std::size_t i = std::get<1>(*data).at(0);
-                                i < std::get<1>(*data).at(1);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
                             }
                             for(std::size_t j = 0; j < SigList::size; ++j) {
-                                if((std::get<3>(*data)[j] & std::get<BitsetType>(std::get<0>(*data)->entities[i]))
-                                        == std::get<3>(*data)[j]) {
-                                    std::lock_guard<std::mutex> lock(*std::get<4>(*data));
-                                    std::get<2>(*data)->at(j).push_back(i);
+                                if((data->bitsets[j]
+                                            & std::get<BitsetType>(
+                                                data->manager->entities[i]))
+                                        == data->bitsets[j]) {
+                                    std::lock_guard<std::mutex> lock(
+                                        *data->mutex);
+                                    data->multiMatchingEntities->at(j)
+                                        .push_back(i);
                                 }
                             }
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
 
             // call functions on matching entities
@@ -1654,8 +1727,15 @@ namespace EC
                     }
                     else
                     {
-                        using TPFnType = std::tuple<Manager*, void*, std::array<std::size_t, 2>, std::vector<std::vector<std::size_t> > *, std::size_t>;
-                        std::array<TPFnType, ThreadCount> fnDataAr;
+                        struct TPFnDataStruct {
+                            std::array<std::size_t, 2> range;
+                            std::size_t index;
+                            Manager *manager;
+                            void *userData;
+                            std::vector<std::vector<std::size_t> >*
+                                multiMatchingEntities;
+                        };
+                        std::array<TPFnDataStruct, ThreadCount> fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
                             / ThreadCount;
                         for(unsigned int i = 0; i < ThreadCount; ++i) {
@@ -1669,36 +1749,43 @@ namespace EC
                             if(begin == end) {
                                 continue;
                             }
-                            std::get<0>(fnDataAr.at(i)) = this;
-                            std::get<1>(fnDataAr.at(i)) = userData;
-                            std::get<2>(fnDataAr.at(i)) = {begin, end};
-                            std::get<3>(fnDataAr.at(i)) = &multiMatchingEntities;
-                            std::get<4>(fnDataAr.at(i)) = index;
+                            fnDataAr[i].range = {begin, end};
+                            fnDataAr[i].index = index;
+                            fnDataAr[i].manager = this;
+                            fnDataAr[i].userData = userData;
+                            fnDataAr[i].multiMatchingEntities =
+                                &multiMatchingEntities;
                             threadPool->queueFn([&func] (void *ud) {
-                                auto *data = static_cast<TPFnType*>(ud);
-                                for(std::size_t i = std::get<2>(*data).at(0);
-                                        i < std::get<2>(*data).at(1);
-                                        ++i) {
-                                    if(std::get<0>(*data)->isAlive(std::get<3>(*data)->at(std::get<4>(*data)).at(i))) {
+                                auto *data = static_cast<TPFnDataStruct*>(ud);
+                                for(std::size_t i = data->range[0];
+                                        i < data->range[1]; ++i) {
+                                    if(data->manager->isAlive(
+                                            data->multiMatchingEntities
+                                                ->at(data->index).at(i))) {
                                         Helper::callPtr(
-                                            std::get<3>(*data)->at(std::get<4>(*data)).at(i),
-                                            *std::get<0>(*data),
+                                            data->multiMatchingEntities
+                                                ->at(data->index).at(i),
+                                            *data->manager,
                                             func,
-                                            std::get<1>(*data));
+                                            data->userData);
                                     }
                                 }
-                            }, &fnDataAr.at(i));
+                            }, &fnDataAr[i]);
                         }
                         threadPool->wakeThreads();
                         do {
-                            std::this_thread::sleep_for(std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                            std::this_thread::sleep_for(
+                                std::chrono::microseconds(200));
+                        } while(!threadPool->isQueueEmpty()
+                            || !threadPool->isAllThreadsWaiting());
                     }
                 }
             );
         }
 
-        typedef void ForMatchingFn(std::size_t, Manager<ComponentsList, TagsList>*, void*);
+        typedef void ForMatchingFn(std::size_t,
+                                   Manager<ComponentsList, TagsList>*,
+                                   void*);
 
         /*!
             \brief A simple version of forMatchingSignature()
@@ -1718,19 +1805,30 @@ namespace EC
             may not have as great of a speed-up.
          */
         template <typename Signature>
-        void forMatchingSimple(ForMatchingFn fn, void *userData = nullptr, const bool useThreadPool = false) {
-            const BitsetType signatureBitset = BitsetType::template generateBitset<Signature>();
+        void forMatchingSimple(ForMatchingFn fn, 
+                               void *userData = nullptr,
+                               const bool useThreadPool = false) {
+            const BitsetType signatureBitset =
+                BitsetType::template generateBitset<Signature>();
             if(!useThreadPool || !threadPool) {
                 for(std::size_t i = 0; i < currentSize; ++i) {
                     if(!std::get<bool>(entities[i])) {
                         continue;
-                    } else if((signatureBitset & std::get<BitsetType>(entities[i])) == signatureBitset) {
+                    } else if((signatureBitset
+                                & std::get<BitsetType>(entities[i]))
+                            == signatureBitset) {
                         fn(i, this, userData);
                     }
                 }
             } else {
-                using TPFnDataType = std::tuple<Manager*, EntitiesType*, const BitsetType*, std::array<std::size_t, 2>, void*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    EntitiesType *entities;
+                    const BitsetType *signature;
+                    void *userData;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -1744,28 +1842,31 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = &entities;
-                    std::get<2>(fnDataAr.at(i)) = &signatureBitset;
-                    std::get<3>(fnDataAr.at(i)) = {begin, end};
-                    std::get<4>(fnDataAr.at(i)) = userData;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].signature = &signatureBitset;
+                    fnDataAr[i].userData = userData;
                     threadPool->queueFn([&fn] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
-                        for(std::size_t i = std::get<3>(*data).at(0);
-                                i < std::get<3>(*data).at(1);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
-                            } else if((*std::get<2>(*data) & std::get<BitsetType>(std::get<1>(*data)->at(i))) == *std::get<2>(*data)) {
-                                fn(i, std::get<0>(*data), std::get<4>(*data));
+                            } else if((*data->signature 
+                                        & std::get<BitsetType>(
+                                            data->entities->at(i)))
+                                    == *data->signature) {
+                                fn(i, data->manager, data->userData);
                             }
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
         }
 
@@ -1788,7 +1889,10 @@ namespace EC
             may not have as great of a speed-up.
          */
         template <typename Iterable>
-        void forMatchingIterable(Iterable iterable, ForMatchingFn fn, void* userData = nullptr, const bool useThreadPool = false) {
+        void forMatchingIterable(Iterable iterable, 
+                                 ForMatchingFn fn,
+                                 void* userData = nullptr,
+                                 const bool useThreadPool = false) {
             if(!useThreadPool || !threadPool) {
                 bool isValid;
                 for(std::size_t i = 0; i < currentSize; ++i) {
@@ -1798,7 +1902,8 @@ namespace EC
 
                     isValid = true;
                     for(const auto& integralValue : iterable) {
-                        if(!std::get<BitsetType>(entities[i]).getCombinedBit(integralValue)) {
+                        if(!std::get<BitsetType>(entities[i]).getCombinedBit(
+                                integralValue)) {
                             isValid = false;
                             break;
                         }
@@ -1808,8 +1913,14 @@ namespace EC
                     fn(i, this, userData);
                 }
             } else {
-                using TPFnDataType = std::tuple<Manager*, EntitiesType*, Iterable*, std::array<std::size_t, 2>, void*>;
-                std::array<TPFnDataType, ThreadCount> fnDataAr;
+                struct TPFnDataStruct {
+                    std::array<std::size_t, 2> range;
+                    Manager *manager;
+                    EntitiesType *entities;
+                    Iterable *iterable;
+                    void *userData;
+                };
+                std::array<TPFnDataStruct, ThreadCount> fnDataAr;
 
                 std::size_t s = currentSize / ThreadCount;
                 for(std::size_t i = 0; i < ThreadCount; ++i) {
@@ -1823,38 +1934,38 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    std::get<0>(fnDataAr.at(i)) = this;
-                    std::get<1>(fnDataAr.at(i)) = &entities;
-                    std::get<2>(fnDataAr.at(i)) = &iterable;
-                    std::get<3>(fnDataAr.at(i)) = {begin, end};
-                    std::get<4>(fnDataAr.at(i)) = userData;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].iterable = &iterable;
+                    fnDataAr[i].userData = userData;
                     threadPool->queueFn([&fn] (void *ud) {
-                        auto *data = static_cast<TPFnDataType*>(ud);
+                        auto *data = static_cast<TPFnDataStruct*>(ud);
                         bool isValid;
-                        for(std::size_t i = std::get<3>(*data).at(0);
-                                i < std::get<3>(*data).at(1);
+                        for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!std::get<0>(*data)->isAlive(i)) {
+                            if(!data->manager->isAlive(i)) {
                                 continue;
                             }
                             isValid = true;
-                            for(const auto& integralValue : *std::get<2>(*data)) {
-                                if(!std::get<BitsetType>(std::get<1>(*data)->at(i)).getCombinedBit(integralValue)) {
+                            for(const auto& integralValue : *data->iterable) {
+                                if(!std::get<BitsetType>(data->entities->at(i))
+                                        .getCombinedBit(integralValue)) {
                                     isValid = false;
                                     break;
                                 }
                             }
                             if(!isValid) { continue; }
 
-                            fn(i, std::get<0>(*data), std::get<4>(*data));
-
+                            fn(i, data->manager, data->userData);
                         }
-                    }, &fnDataAr.at(i));
+                    }, &fnDataAr[i]);
                 }
                 threadPool->wakeThreads();
                 do {
                     std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty() || !threadPool->isAllThreadsWaiting());
+                } while(!threadPool->isQueueEmpty()
+                    || !threadPool->isAllThreadsWaiting());
             }
         }
     };
