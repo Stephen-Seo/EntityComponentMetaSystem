@@ -33,7 +33,7 @@ public:
 
     ThreadPool() : waitCount(0) {
         isAlive.store(true);
-        if(SIZE >= 2) {
+        if constexpr(SIZE >= 2) {
             for(unsigned int i = 0; i < SIZE; ++i) {
                 threads.emplace_back([] (std::atomic_bool *isAlive,
                                          std::condition_variable *cv,
@@ -79,7 +79,7 @@ public:
     }
 
     ~ThreadPool() {
-        if(SIZE >= 2) {
+        if constexpr(SIZE >= 2) {
             isAlive.store(false);
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             cv.notify_all();
@@ -111,7 +111,7 @@ public:
         waking one or all threads, depending on the given boolean parameter.
     */
     void wakeThreads(bool wakeAll = true) {
-        if(SIZE >= 2) {
+        if constexpr(SIZE >= 2) {
             // wake threads to pull functions from queue and run them
             if(wakeAll) {
                 cv.notify_all();
@@ -158,7 +158,7 @@ public:
         If SIZE is less than 2, then this will always return true.
     */
     bool isAllThreadsWaiting() {
-        if(SIZE >= 2) {
+        if constexpr(SIZE >= 2) {
             std::lock_guard<std::mutex> lock(waitCountMutex);
             return waitCount == THREADCOUNT::value;
         } else {
