@@ -98,6 +98,7 @@ namespace EC
 
     public:
         // section for "temporary" structures {{{
+        /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructZero {
             std::array<std::size_t, 2> range;
             Manager *manager;
@@ -105,6 +106,7 @@ namespace EC
             const BitsetType *signature;
             void *userData;
         };
+        /// Temporary struct used internally by ThreadPool
         template <typename Function>
         struct TPFnDataStructOne {
             std::array<std::size_t, 2> range;
@@ -114,6 +116,7 @@ namespace EC
             void *userData;
             Function *fn;
         };
+        /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructTwo {
             std::array<std::size_t, 2> range;
             Manager *manager;
@@ -121,6 +124,7 @@ namespace EC
             void *userData;
             const std::vector<std::size_t> *matching;
         };
+        /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructThree {
             std::array<std::size_t, 2> range;
             Manager *manager;
@@ -129,6 +133,7 @@ namespace EC
             EntitiesType *entities;
             std::mutex *mutex;
         };
+        /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructFour {
             std::array<std::size_t, 2> range;
             Manager *manager;
@@ -137,6 +142,7 @@ namespace EC
             BitsetType *signatures;
             std::mutex *mutex;
         };
+        /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructFive {
             std::array<std::size_t, 2> range;
             std::size_t index;
@@ -145,6 +151,7 @@ namespace EC
             std::vector<std::vector<std::size_t> >*
                 multiMatchingEntities;
         };
+        /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructSix {
             std::array<std::size_t, 2> range;
             Manager *manager;
@@ -153,6 +160,7 @@ namespace EC
             BitsetType *bitsets;
             std::mutex *mutex;
         };
+        /// Temporary struct used internally by ThreadPool
         template <typename Iterable>
         struct TPFnDataStructSeven {
             std::array<std::size_t, 2> range;
@@ -684,7 +692,7 @@ namespace EC
                     // Lambda function contents here
                 },
                 &c, // "Context" object passed to the function
-                4 // four threads
+                true // enable use of internal ThreadPool
                 );
             \endcode
             Note, the ID given to the function is not permanent. An entity's ID
@@ -806,7 +814,7 @@ namespace EC
                 manager.forMatchingSignaturePtr<TypeList<C0, C1, T0>>(
                     &function, // ptr
                     &c, // "Context" object passed to the function
-                    4 // four threads
+                    true // enable use of ThreadPool
                 );
             \endcode
             Note, the ID given to the function is not permanent. An entity's ID
@@ -1145,8 +1153,8 @@ namespace EC
                 // call all stored functions
                 manager.callForMatchingFunctions();
 
-                // call all stored functions with 4 threads
-                manager.callForMatchingFunctions(4);
+                // call all stored functions with ThreadPool enabled
+                manager.callForMatchingFunctions(true);
 
                 // remove all stored functions
                 manager.clearForMatchingFunctions();
@@ -1198,8 +1206,8 @@ namespace EC
                 // call the previously added function
                 manager.callForMatchingFunction(id);
 
-                // call the previously added function with 4 threads
-                manager.callForMatchingFunction(id, 4);
+                // call the previously added function with ThreadPool enabled
+                manager.callForMatchingFunction(id, true);
             \endcode
 
             \return False if a function with the given id does not exist.
