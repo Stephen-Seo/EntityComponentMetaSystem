@@ -945,7 +945,7 @@ namespace EC
             \endcode
 
             \return The index of the function, used for deletion with
-                deleteForMatchingFunction() or filtering with
+                removeForMatchingFunction() or filtering with
                 keepSomeMatchingFunctions() or removeSomeMatchingFunctions(),
                 or calling with callForMatchingFunction().
         */
@@ -1338,19 +1338,6 @@ namespace EC
             std::initializer_list<std::size_t> list)
         {
             return removeSomeMatchingFunctions<decltype(list)>(list);
-        }
-
-        /*!
-            \brief Deletes the specified function.
-
-            The index of a function is returned from addForMatchingFunction()
-                so there is no other way to get the index of a function.
-
-            \return True if function existed and has been deleted.
-        */
-        bool deleteForMatchingFunction(std::size_t index)
-        {
-            return forMatchingFunctions.erase(index) == 1;
         }
 
         /*!
