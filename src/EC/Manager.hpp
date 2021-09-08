@@ -733,13 +733,13 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructZero, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructZero, ThreadCount * 2> fnDataAr;
 
-                std::size_t s = currentSize / ThreadCount;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                std::size_t s = currentSize / (ThreadCount * 2);
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
@@ -854,13 +854,13 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructOne<Function>, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructOne<Function>, ThreadCount * 2> fnDataAr;
 
-                std::size_t s = currentSize / ThreadCount;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                std::size_t s = currentSize / (ThreadCount * 2);
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
@@ -1004,13 +1004,13 @@ namespace EC
                     }
                     else
                     {
-                        std::array<TPFnDataStructTwo, ThreadCount> fnDataAr;
+                        std::array<TPFnDataStructTwo, ThreadCount * 2> fnDataAr;
 
-                        std::size_t s = matching.size() / ThreadCount;
-                        for(std::size_t i = 0; i < ThreadCount; ++i) {
+                        std::size_t s = matching.size() / (ThreadCount * 2);
+                        for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == ThreadCount - 1) {
+                            if(i == ThreadCount * 2 - 1) {
                                 end = matching.size();
                             } else {
                                 end = s * (i + 1);
@@ -1077,14 +1077,14 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructThree, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructThree, ThreadCount * 2> fnDataAr;
 
-                std::size_t s = currentSize / ThreadCount;
+                std::size_t s = currentSize / (ThreadCount * 2);
                 std::mutex mutex;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
@@ -1454,14 +1454,14 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructFour, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructFour, ThreadCount * 2> fnDataAr;
 
                 std::mutex mutex;
-                std::size_t s = currentSize / ThreadCount;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                std::size_t s = currentSize / (ThreadCount * 2);
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
@@ -1524,13 +1524,14 @@ namespace EC
                             }
                         }
                     } else {
-                        std::array<TPFnDataStructFive, ThreadCount> fnDataAr;
+                        std::array<TPFnDataStructFive, ThreadCount * 2>
+                            fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
-                            / ThreadCount;
-                        for(unsigned int i = 0; i < ThreadCount; ++i) {
+                            / (ThreadCount * 2);
+                        for(unsigned int i = 0; i < ThreadCount * 2; ++i) {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == ThreadCount - 1) {
+                            if(i == ThreadCount * 2 - 1) {
                                 end = multiMatchingEntities[index].size();
                             } else {
                                 end = s * (i + 1);
@@ -1662,14 +1663,14 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructSix, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructSix, ThreadCount * 2> fnDataAr;
 
                 std::mutex mutex;
-                std::size_t s = currentSize / ThreadCount;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                std::size_t s = currentSize / (ThreadCount * 2);
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
@@ -1737,13 +1738,14 @@ namespace EC
                     }
                     else
                     {
-                        std::array<TPFnDataStructFive, ThreadCount> fnDataAr;
+                        std::array<TPFnDataStructFive, ThreadCount * 2>
+                            fnDataAr;
                         std::size_t s = multiMatchingEntities[index].size()
-                            / ThreadCount;
-                        for(unsigned int i = 0; i < ThreadCount; ++i) {
+                            / (ThreadCount * 2);
+                        for(unsigned int i = 0; i < ThreadCount * 2; ++i) {
                             std::size_t begin = s * i;
                             std::size_t end;
-                            if(i == ThreadCount - 1) {
+                            if(i == ThreadCount * 2 - 1) {
                                 end = multiMatchingEntities[index].size();
                             } else {
                                 end = s * (i + 1);
@@ -1823,13 +1825,13 @@ namespace EC
                     }
                 }
             } else {
-                std::array<TPFnDataStructZero, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructZero, ThreadCount * 2> fnDataAr;
 
-                std::size_t s = currentSize / ThreadCount;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                std::size_t s = currentSize / (ThreadCount * 2);
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
@@ -1908,13 +1910,14 @@ namespace EC
                     fn(i, this, userData);
                 }
             } else {
-                std::array<TPFnDataStructSeven<Iterable>, ThreadCount> fnDataAr;
+                std::array<TPFnDataStructSeven<Iterable>, ThreadCount * 2>
+                    fnDataAr;
 
-                std::size_t s = currentSize / ThreadCount;
-                for(std::size_t i = 0; i < ThreadCount; ++i) {
+                std::size_t s = currentSize / (ThreadCount * 2);
+                for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
                     std::size_t begin = s * i;
                     std::size_t end;
-                    if(i == ThreadCount - 1) {
+                    if(i == ThreadCount * 2 - 1) {
                         end = currentSize;
                     } else {
                         end = s * (i + 1);
