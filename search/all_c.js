@@ -1,15 +1,8 @@
 var searchData=
 [
-  ['threadpool_52',['ThreadPool',['../classEC_1_1ThreadPool.html',1,'EC']]],
-  ['tpfndatastructfive_53',['TPFnDataStructFive',['../structEC_1_1Manager_1_1TPFnDataStructFive.html',1,'EC::Manager']]],
-  ['tpfndatastructfour_54',['TPFnDataStructFour',['../structEC_1_1Manager_1_1TPFnDataStructFour.html',1,'EC::Manager']]],
-  ['tpfndatastructone_55',['TPFnDataStructOne',['../structEC_1_1Manager_1_1TPFnDataStructOne.html',1,'EC::Manager']]],
-  ['tpfndatastructseven_56',['TPFnDataStructSeven',['../structEC_1_1Manager_1_1TPFnDataStructSeven.html',1,'EC::Manager']]],
-  ['tpfndatastructsix_57',['TPFnDataStructSix',['../structEC_1_1Manager_1_1TPFnDataStructSix.html',1,'EC::Manager']]],
-  ['tpfndatastructthree_58',['TPFnDataStructThree',['../structEC_1_1Manager_1_1TPFnDataStructThree.html',1,'EC::Manager']]],
-  ['tpfndatastructtwo_59',['TPFnDataStructTwo',['../structEC_1_1Manager_1_1TPFnDataStructTwo.html',1,'EC::Manager']]],
-  ['tpfndatastructzero_60',['TPFnDataStructZero',['../structEC_1_1Manager_1_1TPFnDataStructZero.html',1,'EC::Manager']]],
-  ['typelist_61',['TypeList',['../structEC_1_1Meta_1_1TypeList.html',1,'EC::Meta']]],
-  ['typelistgethelper_62',['TypeListGetHelper',['../structEC_1_1Meta_1_1TypeListGetHelper.html',1,'EC::Meta']]],
-  ['typelistgethelper_3c_20ttypelist_2c_20tttypelist_3c_20type_2c_20rest_2e_2e_2e_20_3e_2c_20index_20_3e_63',['TypeListGetHelper&lt; TTypeList, TTTypeList&lt; Type, Rest... &gt;, Index &gt;',['../structEC_1_1Meta_1_1TypeListGetHelper_3_01TTypeList_00_01TTTypeList_3_01Type_00_01Rest_8_8_8_01_4_00_01Index_01_4.html',1,'EC::Meta']]]
+  ['removecomponent_49',['removeComponent',['../structEC_1_1Manager.html#a80ea9ef8ccdb0680e36d5cf4c71d418f',1,'EC::Manager']]],
+  ['removeformatchingfunction_50',['removeForMatchingFunction',['../structEC_1_1Manager.html#ae3ce39919c875af47e5c68843df5e9e6',1,'EC::Manager']]],
+  ['removesomematchingfunctions_51',['removeSomeMatchingFunctions',['../structEC_1_1Manager.html#ae7473a3c87f75bd859e8380d479b53fc',1,'EC::Manager::removeSomeMatchingFunctions(List list)'],['../structEC_1_1Manager.html#a17177b506627b97fe2ced68cc6441363',1,'EC::Manager::removeSomeMatchingFunctions(std::initializer_list&lt; std::size_t &gt; list)']]],
+  ['removetag_52',['removeTag',['../structEC_1_1Manager.html#a9b107a9b7c241c410e59efab1d3aaead',1,'EC::Manager']]],
+  ['reset_53',['reset',['../structEC_1_1Manager.html#a6f5c1c6d040f7be1d15ba67d15ae0295',1,'EC::Manager']]]
 ];
