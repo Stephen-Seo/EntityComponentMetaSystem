@@ -5,7 +5,7 @@
 using OneThreadPool = EC::ThreadPool<1>;
 using ThreeThreadPool = EC::ThreadPool<3>;
 
-TEST(ECThreadPool, CannotCompile) {
+TEST(ECThreadPool, OneThread) {
     OneThreadPool p;
     std::atomic_int data;
     data.store(0);
