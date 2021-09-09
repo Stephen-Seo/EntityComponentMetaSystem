@@ -4,4 +4,6 @@
     \ref md_README
 
     <a href="annotated.html">Classes</a>
+
+    \ref EC::Manager "The Manager class that manages an Entity Component System"
  */
