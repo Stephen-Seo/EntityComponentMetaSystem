@@ -771,11 +771,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
         }
 
@@ -892,11 +888,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
         }
 
@@ -1037,12 +1029,7 @@ namespace EC
                                 }
                             }, &fnDataAr[i]);
                         }
-                        threadPool->wakeThreads();
-                        do {
-                            std::this_thread::sleep_for(
-                                    std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty()
-                            || !threadPool->isAllThreadsWaiting());
+                        threadPool->easyWakeAndWait();
                     }
                 })));
 
@@ -1117,11 +1104,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
 
             return matchingV;
@@ -1494,11 +1477,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
 
             // call functions on matching entities
@@ -1560,12 +1539,7 @@ namespace EC
                                 }
                             }, &fnDataAr[i]);
                         }
-                        threadPool->wakeThreads();
-                        do {
-                            std::this_thread::sleep_for(
-                                std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty()
-                            || !threadPool->isAllThreadsWaiting());
+                        threadPool->easyWakeAndWait();
                     }
                 }
             );
@@ -1703,11 +1677,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
 
             // call functions on matching entities
@@ -1774,12 +1744,7 @@ namespace EC
                                 }
                             }, &fnDataAr[i]);
                         }
-                        threadPool->wakeThreads();
-                        do {
-                            std::this_thread::sleep_for(
-                                std::chrono::microseconds(200));
-                        } while(!threadPool->isQueueEmpty()
-                            || !threadPool->isAllThreadsWaiting());
+                        threadPool->easyWakeAndWait();
                     }
                 }
             );
@@ -1857,11 +1822,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
         }
 
@@ -1950,11 +1911,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->wakeThreads();
-                do {
-                    std::this_thread::sleep_for(std::chrono::microseconds(200));
-                } while(!threadPool->isQueueEmpty()
-                    || !threadPool->isAllThreadsWaiting());
+                threadPool->easyWakeAndWait();
             }
         }
     };

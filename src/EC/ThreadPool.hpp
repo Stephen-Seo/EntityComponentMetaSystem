@@ -117,24 +117,7 @@ public:
                 cv.notify_one();
             }
         } else {
-            // pull functions from queue and run them on main thread
-            Internal::TPTupleType fnTuple;
-            bool hasFn;
-            do {
-                {
-                    std::lock_guard<std::mutex> lock(queueMutex);
-                    if(!fnQueue.empty()) {
-                        hasFn = true;
-                        fnTuple = fnQueue.front();
-                        fnQueue.pop();
-                    } else {
-                        hasFn = false;
-                    }
-                }
-                if(hasFn) {
-                    std::get<0>(fnTuple)(std::get<1>(fnTuple));
-                }
-            } while(hasFn);
+            sequentiallyRunTasks();
         }
     }
 
@@ -179,6 +162,26 @@ public:
         return SIZE;
     }
 
+    /*!
+        \brief Wakes all threads and blocks until all queued tasks are finished.
+
+        If SIZE is less than 2, then this function call will block until all the
+        queued functions have been executed on the calling thread.
+
+        If SIZE is 2 or greater, then this function will block until all the
+        queued functions have been executed by the threads in the thread pool.
+     */
+    void easyWakeAndWait() {
+        if(SIZE >= 2) {
+            wakeThreads();
+            do {
+                std::this_thread::sleep_for(std::chrono::microseconds(150));
+            } while(!isQueueEmpty() || !isAllThreadsWaiting());
+        } else {
+            sequentiallyRunTasks();
+        }
+    }
+
 private:
     std::vector<std::thread> threads;
     std::atomic_bool isAlive;
@@ -188,6 +191,27 @@ private:
     std::mutex queueMutex;
     int waitCount;
     std::mutex waitCountMutex;
+
+    void sequentiallyRunTasks() {
+        // pull functions from queue and run them on current thread
+        Internal::TPTupleType fnTuple;
+        bool hasFn;
+        do {
+            {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                if(!fnQueue.empty()) {
+                    hasFn = true;
+                    fnTuple = fnQueue.front();
+                    fnQueue.pop();
+                } else {
+                    hasFn = false;
+                }
+            }
+            if(hasFn) {
+                std::get<0>(fnTuple)(std::get<1>(fnTuple));
+            }
+        } while(hasFn);
+    }
 
 };
 
