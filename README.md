@@ -5,6 +5,10 @@ built and run using cmake (gtest is a dependency).
 
 [(Note that gtest uses the BSD 3-Clause License.)](https://github.com/google/googletest/blob/master/LICENSE)
 
+# Generated Doxygen Documentation
+
+[Check this repository's gh-pages documentation on ECMS](https://stephen-seo.github.io/EntityComponentMetaSystem/)
+
 # Compiling the UnitTests
 
 Create a build directory.  

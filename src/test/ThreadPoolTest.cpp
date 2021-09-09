@@ -77,3 +77,30 @@ TEST(ECThreadPool, QueryCount) {
         ASSERT_EQ(3, threeP.getThreadCount());
     }
 }
+
+TEST(ECThreadPool, easyWakeAndWait) {
+    std::atomic_int data;
+    data.store(0);
+    {
+        OneThreadPool oneP;
+        for(unsigned int i = 0; i < 20; ++i) {
+            oneP.queueFn([] (void *ud) {
+                auto *atomicInt = static_cast<std::atomic_int*>(ud);
+                atomicInt->fetch_add(1);
+            }, &data);
+        }
+        oneP.easyWakeAndWait();
+        EXPECT_EQ(20, data.load());
+    }
+    {
+        ThreeThreadPool threeP;
+        for(unsigned int i = 0; i < 20; ++i) {
+            threeP.queueFn([] (void *ud) {
+                auto *atomicInt = static_cast<std::atomic_int*>(ud);
+                atomicInt->fetch_add(1);
+            }, &data);
+        }
+        threeP.easyWakeAndWait();
+        EXPECT_EQ(40, data.load());
+    }
+}
