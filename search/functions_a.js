@@ -1,8 +1,4 @@
 var searchData=
 [
-  ['removecomponent_127',['removeComponent',['../structEC_1_1Manager.html#a80ea9ef8ccdb0680e36d5cf4c71d418f',1,'EC::Manager']]],
-  ['removeformatchingfunction_128',['removeForMatchingFunction',['../structEC_1_1Manager.html#ae3ce39919c875af47e5c68843df5e9e6',1,'EC::Manager']]],
-  ['removesomematchingfunctions_129',['removeSomeMatchingFunctions',['../structEC_1_1Manager.html#ae7473a3c87f75bd859e8380d479b53fc',1,'EC::Manager::removeSomeMatchingFunctions(List list)'],['../structEC_1_1Manager.html#a17177b506627b97fe2ced68cc6441363',1,'EC::Manager::removeSomeMatchingFunctions(std::initializer_list&lt; std::size_t &gt; list)']]],
-  ['removetag_130',['removeTag',['../structEC_1_1Manager.html#a9b107a9b7c241c410e59efab1d3aaead',1,'EC::Manager']]],
-  ['reset_131',['reset',['../structEC_1_1Manager.html#a6f5c1c6d040f7be1d15ba67d15ae0295',1,'EC::Manager']]]
+  ['queuefn_128',['queueFn',['../classEC_1_1ThreadPool.html#a6bad053e20a80c606e2d41e36f692b21',1,'EC::ThreadPool']]]
 ];

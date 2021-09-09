@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['queuefn_126',['queueFn',['../classEC_1_1ThreadPool.html#a6bad053e20a80c606e2d41e36f692b21',1,'EC::ThreadPool']]]
+  ['manager_127',['Manager',['../structEC_1_1Manager.html#ad2593d66e2ea9c61dc6ee518b2dbcaeb',1,'EC::Manager']]]
 ];

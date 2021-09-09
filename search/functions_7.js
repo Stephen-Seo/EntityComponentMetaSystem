@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['keepsomematchingfunctions_124',['keepSomeMatchingFunctions',['../structEC_1_1Manager.html#a57d98b20e15e0aa91a2b1b51d22f978f',1,'EC::Manager::keepSomeMatchingFunctions(List list)'],['../structEC_1_1Manager.html#aa008ed1d8e1a4e172a24bf3e7e910ce0',1,'EC::Manager::keepSomeMatchingFunctions(std::initializer_list&lt; std::size_t &gt; list)']]]
+  ['isalive_123',['isAlive',['../structEC_1_1Manager.html#af6fbd461cae192d0265e10aa90eeae27',1,'EC::Manager']]],
+  ['isallthreadswaiting_124',['isAllThreadsWaiting',['../classEC_1_1ThreadPool.html#aabf4ed41d9d5859574ad7bf5cf779635',1,'EC::ThreadPool']]],
+  ['isqueueempty_125',['isQueueEmpty',['../classEC_1_1ThreadPool.html#a88db1c4038b454d4235cb76fb221354a',1,'EC::ThreadPool']]]
 ];

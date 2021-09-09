@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['isalive_121',['isAlive',['../structEC_1_1Manager.html#af6fbd461cae192d0265e10aa90eeae27',1,'EC::Manager']]],
-  ['isallthreadswaiting_122',['isAllThreadsWaiting',['../classEC_1_1ThreadPool.html#aabf4ed41d9d5859574ad7bf5cf779635',1,'EC::ThreadPool']]],
-  ['isqueueempty_123',['isQueueEmpty',['../classEC_1_1ThreadPool.html#a88db1c4038b454d4235cb76fb221354a',1,'EC::ThreadPool']]]
+  ['hascomponent_120',['hasComponent',['../structEC_1_1Manager.html#a9183eec38a395202e82796bfc8dffee3',1,'EC::Manager']]],
+  ['hasentity_121',['hasEntity',['../structEC_1_1Manager.html#ae8ec7f757cbac593a00658d7e1425cdc',1,'EC::Manager']]],
+  ['hastag_122',['hasTag',['../structEC_1_1Manager.html#a1cd7a1359cd695030efb40f3d21f6722',1,'EC::Manager']]]
 ];

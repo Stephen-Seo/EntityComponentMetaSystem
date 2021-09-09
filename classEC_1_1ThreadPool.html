@@ -101,6 +101,9 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 constexpr unsigned int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classEC_1_1ThreadPool.html#a1658f58f5ce37088b096cd4cc304db39">getThreadCount</a> ()</td></tr>
 <tr class="memdesc:a1658f58f5ce37088b096cd4cc304db39"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the ThreadCount that this class was created with. <br /></td></tr>
 <tr class="separator:a1658f58f5ce37088b096cd4cc304db39"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab8573c765354411608a24a93a41a54be"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classEC_1_1ThreadPool.html#ab8573c765354411608a24a93a41a54be">easyWakeAndWait</a> ()</td></tr>
+<tr class="memdesc:ab8573c765354411608a24a93a41a54be"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wakes all threads and blocks until all queued tasks are finished.  <a href="classEC_1_1ThreadPool.html#ab8573c765354411608a24a93a41a54be">More...</a><br /></td></tr>
+<tr class="separator:ab8573c765354411608a24a93a41a54be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><h3>template&lt;unsigned int SIZE&gt;<br />
@@ -109,6 +112,37 @@ class EC::ThreadPool&lt; SIZE &gt;</h3>
 <p>Implementation of a Thread Pool. </p>
 <p>Note that if SIZE is less than 2, then <a class="el" href="classEC_1_1ThreadPool.html" title="Implementation of a Thread Pool.">ThreadPool</a> will not create threads and run queued functions on the calling thread. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="ab8573c765354411608a24a93a41a54be"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab8573c765354411608a24a93a41a54be">&#9670;&nbsp;</a></span>easyWakeAndWait()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;unsigned int SIZE&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void <a class="el" href="classEC_1_1ThreadPool.html">EC::ThreadPool</a>&lt; SIZE &gt;::easyWakeAndWait </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Wakes all threads and blocks until all queued tasks are finished. </p>
+<p>If SIZE is less than 2, then this function call will block until all the queued functions have been executed on the calling thread.</p>
+<p>If SIZE is 2 or greater, then this function will block until all the queued functions have been executed by the threads in the thread pool. </p>
+
+</div>
+</div>
 <a id="a26bbe59d2b8c1a845146e771b8713f3b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a26bbe59d2b8c1a845146e771b8713f3b">&#9670;&nbsp;</a></span>getWaitCount()</h2>
 
