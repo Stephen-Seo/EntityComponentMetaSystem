@@ -172,7 +172,7 @@ public:
         queued functions have been executed by the threads in the thread pool.
      */
     void easyWakeAndWait() {
-        if(SIZE >= 2) {
+        if constexpr(SIZE >= 2) {
             wakeThreads();
             do {
                 std::this_thread::sleep_for(std::chrono::microseconds(150));
