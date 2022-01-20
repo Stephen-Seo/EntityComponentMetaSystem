@@ -134,9 +134,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a693034d22c49a40898e5e2d46c06caf7"><td class="memItemLeft" align="right" valign="top">std::size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structEC_1_1Manager.html#a693034d22c49a40898e5e2d46c06caf7">addEntity</a> ()</td></tr>
 <tr class="memdesc:a693034d22c49a40898e5e2d46c06caf7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Adds an entity to the system, returning the ID of the entity.  <a href="structEC_1_1Manager.html#a693034d22c49a40898e5e2d46c06caf7">More...</a><br /></td></tr>
 <tr class="separator:a693034d22c49a40898e5e2d46c06caf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb1b87d3d98f264bdbf2a83736903b56"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structEC_1_1Manager.html#afb1b87d3d98f264bdbf2a83736903b56">deleteEntity</a> (const std::size_t &amp;index)</td></tr>
-<tr class="memdesc:afb1b87d3d98f264bdbf2a83736903b56"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks an entity for deletion.  <a href="structEC_1_1Manager.html#afb1b87d3d98f264bdbf2a83736903b56">More...</a><br /></td></tr>
-<tr class="separator:afb1b87d3d98f264bdbf2a83736903b56"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acda2b4c12cb59bbf0bf133a079596ae7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structEC_1_1Manager.html#acda2b4c12cb59bbf0bf133a079596ae7">deleteEntity</a> (std::size_t index)</td></tr>
+<tr class="memdesc:acda2b4c12cb59bbf0bf133a079596ae7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks an entity for deletion.  <a href="structEC_1_1Manager.html#acda2b4c12cb59bbf0bf133a079596ae7">More...</a><br /></td></tr>
+<tr class="separator:acda2b4c12cb59bbf0bf133a079596ae7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae8ec7f757cbac593a00658d7e1425cdc"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structEC_1_1Manager.html#ae8ec7f757cbac593a00658d7e1425cdc">hasEntity</a> (const std::size_t &amp;index) const</td></tr>
 <tr class="memdesc:ae8ec7f757cbac593a00658d7e1425cdc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks if the Entity with the given ID is in the system.  <a href="structEC_1_1Manager.html#ae8ec7f757cbac593a00658d7e1425cdc">More...</a><br /></td></tr>
 <tr class="separator:ae8ec7f757cbac593a00658d7e1425cdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -261,8 +261,9 @@ struct EC::Manager&lt; ComponentsList, TagsList, ThreadCount &gt;</h3>
 <p><a class="el" href="structEC_1_1Manager.html" title="Manages an EntityComponent system.">EC::Manager</a> must be created with a list of all used Components and all used tags.</p>
 <p>Note that all components must have a default constructor.</p>
 <p>An optional third template parameter may be given, which is the size of the number of threads in the internal <a class="el" href="classEC_1_1ThreadPool.html" title="Implementation of a Thread Pool.">ThreadPool</a>, and should be at least 2. If ThreadCount is 1 or less, then the <a class="el" href="classEC_1_1ThreadPool.html" title="Implementation of a Thread Pool.">ThreadPool</a> will not be created and it will never be used, even if the "true" parameter is given for functions that enable its usage.</p>
+<p>Note that when calling one of the "forMatching" functions that make use of the internal <a class="el" href="classEC_1_1ThreadPool.html" title="Implementation of a Thread Pool.">ThreadPool</a>, it is allowed to call <a class="el" href="structEC_1_1Manager.html#a693034d22c49a40898e5e2d46c06caf7" title="Adds an entity to the system, returning the ID of the entity.">addEntity()</a> or <a class="el" href="structEC_1_1Manager.html#acda2b4c12cb59bbf0bf133a079596ae7" title="Marks an entity for deletion.">deleteEntity()</a> as the functions cache which entities are alive before running (allowing for <a class="el" href="structEC_1_1Manager.html#a693034d22c49a40898e5e2d46c06caf7" title="Adds an entity to the system, returning the ID of the entity.">addEntity()</a>), and the functions defer deletions during concurrent execution (allowing for <a class="el" href="structEC_1_1Manager.html#acda2b4c12cb59bbf0bf133a079596ae7" title="Marks an entity for deletion.">deleteEntity()</a>).</p>
 <p>Example: </p><div class="fragment"><div class="line"><a class="code" href="structEC_1_1Manager.html">EC::Manager&lt;TypeList&lt;C0, C1, C2&gt;</a>, TypeList&lt;T0, T1&gt;&gt; manager;</div>
-<div class="ttc" id="astructEC_1_1Manager_html"><div class="ttname"><a href="structEC_1_1Manager.html">EC::Manager</a></div><div class="ttdoc">Manages an EntityComponent system.</div><div class="ttdef"><b>Definition:</b> Manager.hpp:67</div></div>
+<div class="ttc" id="astructEC_1_1Manager_html"><div class="ttname"><a href="structEC_1_1Manager.html">EC::Manager</a></div><div class="ttdoc">Manages an EntityComponent system.</div><div class="ttdef"><b>Definition:</b> Manager.hpp:74</div></div>
 </div><!-- fragment --> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ad2593d66e2ea9c61dc6ee518b2dbcaeb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad2593d66e2ea9c61dc6ee518b2dbcaeb">&#9670;&nbsp;</a></span>Manager()</h2>
@@ -658,8 +659,8 @@ template&lt;typename ComponentsList , typename TagsList , unsigned int ThreadCou
 </div><!-- fragment --> 
 </div>
 </div>
-<a id="afb1b87d3d98f264bdbf2a83736903b56"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afb1b87d3d98f264bdbf2a83736903b56">&#9670;&nbsp;</a></span>deleteEntity()</h2>
+<a id="acda2b4c12cb59bbf0bf133a079596ae7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acda2b4c12cb59bbf0bf133a079596ae7">&#9670;&nbsp;</a></span>deleteEntity()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -672,7 +673,7 @@ template&lt;typename ComponentsList , typename TagsList , unsigned int ThreadCou
         <tr>
           <td class="memname">void <a class="el" href="structEC_1_1Manager.html">EC::Manager</a>&lt; ComponentsList, TagsList, ThreadCount &gt;::deleteEntity </td>
           <td>(</td>
-          <td class="paramtype">const std::size_t &amp;&#160;</td>
+          <td class="paramtype">std::size_t&#160;</td>
           <td class="paramname"><em>index</em></td><td>)</td>
           <td></td>
         </tr>
