@@ -105,6 +105,7 @@ namespace EC
             EntitiesType *entities;
             const BitsetType *signature;
             void *userData;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         template <typename Function>
@@ -115,6 +116,7 @@ namespace EC
             BitsetType *signature;
             void *userData;
             Function *fn;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructTwo {
@@ -123,6 +125,7 @@ namespace EC
             EntitiesType *entities;
             void *userData;
             const std::vector<std::size_t> *matching;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructThree {
@@ -132,6 +135,7 @@ namespace EC
             const std::vector<BitsetType*> *bitsets;
             EntitiesType *entities;
             std::mutex *mutex;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructFour {
@@ -141,6 +145,7 @@ namespace EC
                 multiMatchingEntities;
             BitsetType *signatures;
             std::mutex *mutex;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructFive {
@@ -150,6 +155,7 @@ namespace EC
             void *userData;
             std::vector<std::vector<std::size_t> >*
                 multiMatchingEntities;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         struct TPFnDataStructSix {
@@ -159,6 +165,7 @@ namespace EC
                 multiMatchingEntities;
             BitsetType *bitsets;
             std::mutex *mutex;
+            std::unordered_set<std::size_t> dead;
         };
         /// Temporary struct used internally by ThreadPool
         template <typename Iterable>
@@ -168,6 +175,7 @@ namespace EC
             EntitiesType *entities;
             Iterable *iterable;
             void *userData;
+            std::unordered_set<std::size_t> dead;
         };
         // end section for "temporary" structures }}}
 
@@ -750,12 +758,17 @@ namespace EC
                     fnDataAr[i].entities = &entities;
                     fnDataAr[i].signature = &signatureBitset;
                     fnDataAr[i].userData = userData;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
 
                     threadPool->queueFn([&function] (void *ud) {
                         auto *data = static_cast<TPFnDataStructZero*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
                             }
 
@@ -868,11 +881,16 @@ namespace EC
                     fnDataAr[i].signature = &signatureBitset;
                     fnDataAr[i].userData = userData;
                     fnDataAr[i].fn = function;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
                     threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataStructOne<Function>*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
                             }
 
@@ -1013,13 +1031,17 @@ namespace EC
                             fnDataAr[i].entities = &entities;
                             fnDataAr[i].userData = userData;
                             fnDataAr[i].matching = &matching;
+                            for(std::size_t j = begin; j < end; ++j) {
+                                if(!isAlive(matching.at(j))) {
+                                    fnDataAr[i].dead.insert(j);
+                                }
+                            }
                             threadPool->queueFn([&function, helper] (void* ud) {
                                 auto *data = static_cast<TPFnDataStructTwo*>(ud);
                                 for(std::size_t i = data->range[0];
                                         i < data->range[1];
                                         ++i) {
-                                    if(data->manager->isAlive(
-                                            data->matching->at(i))) {
+                                    if(data->dead.find(i) == data->dead.end()) {
                                         helper.callInstancePtr(
                                             data->matching->at(i),
                                             *data->manager,
@@ -1083,11 +1105,16 @@ namespace EC
                     fnDataAr[i].bitsets = &bitsets;
                     fnDataAr[i].entities = &entities;
                     fnDataAr[i].mutex = &mutex;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
                     threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataStructThree*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
                             }
                             for(std::size_t j = 0; j < data->bitsets->size();
@@ -1455,12 +1482,17 @@ namespace EC
                     fnDataAr[i].multiMatchingEntities = &multiMatchingEntities;
                     fnDataAr[i].signatures = signatureBitsets;
                     fnDataAr[i].mutex = &mutex;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
 
                     threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataStructFour*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
                             }
                             for(std::size_t j = 0; j < SigList::size; ++j) {
@@ -1522,13 +1554,16 @@ namespace EC
                             fnDataAr[i].userData = userData;
                             fnDataAr[i].multiMatchingEntities =
                                 &multiMatchingEntities;
+                            for(std::size_t j = begin; j < end; ++j) {
+                                if(!isAlive(multiMatchingEntities.at(index).at(j))) {
+                                    fnDataAr[i].dead.insert(j);
+                                }
+                            }
                             threadPool->queueFn([&func] (void *ud) {
                                 auto *data = static_cast<TPFnDataStructFive*>(ud);
                                 for(std::size_t i = data->range[0];
                                         i < data->range[1]; ++i) {
-                                    if(data->manager->isAlive(
-                                            data->multiMatchingEntities
-                                                ->at(data->index).at(i))) {
+                                    if(data->dead.find(i) == data->dead.end()) {
                                         Helper::call(
                                             data->multiMatchingEntities
                                                 ->at(data->index).at(i),
@@ -1655,12 +1690,17 @@ namespace EC
                     fnDataAr[i].multiMatchingEntities = &multiMatchingEntities;
                     fnDataAr[i].bitsets = signatureBitsets;
                     fnDataAr[i].mutex = &mutex;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
 
                     threadPool->queueFn([] (void *ud) {
                         auto *data = static_cast<TPFnDataStructSix*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
                             }
                             for(std::size_t j = 0; j < SigList::size; ++j) {
@@ -1727,13 +1767,16 @@ namespace EC
                             fnDataAr[i].userData = userData;
                             fnDataAr[i].multiMatchingEntities =
                                 &multiMatchingEntities;
+                            for(std::size_t j = begin; j < end; ++j) {
+                                if(!isAlive(multiMatchingEntities.at(index).at(j))) {
+                                    fnDataAr[i].dead.insert(j);
+                                }
+                            }
                             threadPool->queueFn([&func] (void *ud) {
                                 auto *data = static_cast<TPFnDataStructFive*>(ud);
                                 for(std::size_t i = data->range[0];
                                         i < data->range[1]; ++i) {
-                                    if(data->manager->isAlive(
-                                            data->multiMatchingEntities
-                                                ->at(data->index).at(i))) {
+                                    if(data->dead.find(i) == data->dead.end()) {
                                         Helper::callPtr(
                                             data->multiMatchingEntities
                                                 ->at(data->index).at(i),
@@ -1807,13 +1850,18 @@ namespace EC
                     fnDataAr[i].entities = &entities;
                     fnDataAr[i].signature = &signatureBitset;
                     fnDataAr[i].userData = userData;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
                     threadPool->queueFn([&fn] (void *ud) {
                         auto *data = static_cast<TPFnDataStructZero*>(ud);
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
-                            } else if((*data->signature 
+                            } else if((*data->signature
                                         & std::get<BitsetType>(
                                             data->entities->at(i)))
                                     == *data->signature) {
@@ -1889,12 +1937,17 @@ namespace EC
                     fnDataAr[i].entities = &entities;
                     fnDataAr[i].iterable = &iterable;
                     fnDataAr[i].userData = userData;
+                    for(std::size_t j = begin; j < end; ++j) {
+                        if(!isAlive(j)) {
+                            fnDataAr[i].dead.insert(j);
+                        }
+                    }
                     threadPool->queueFn([&fn] (void *ud) {
                         auto *data = static_cast<TPFnDataStructSeven<Iterable>*>(ud);
                         bool isValid;
                         for(std::size_t i = data->range[0]; i < data->range[1];
                                 ++i) {
-                            if(!data->manager->isAlive(i)) {
+                            if(data->dead.find(i) != data->dead.end()) {
                                 continue;
                             }
                             isValid = true;
