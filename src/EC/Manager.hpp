@@ -11,6 +11,7 @@
 #define EC_GROW_SIZE_AMOUNT 256
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <vector>
 #include <deque>
@@ -55,6 +56,12 @@ namespace EC
         created and it will never be used, even if the "true" parameter is given
         for functions that enable its usage.
 
+        Note that when calling one of the "forMatching" functions that make use
+        of the internal ThreadPool, it is allowed to call addEntity() or
+        deleteEntity() as the functions cache which entities are alive before
+        running (allowing for addEntity()), and the functions defer deletions
+        during concurrent execution (allowing for deleteEntity()).
+
         Example:
         \code{.cpp}
             EC::Manager<TypeList<C0, C1, C2>, TypeList<T0, T1>> manager;
@@ -95,6 +102,10 @@ namespace EC
         std::unordered_set<std::size_t> deletedSet;
 
         std::unique_ptr<ThreadPool<ThreadCount> > threadPool;
+
+        std::atomic_uint deferringDeletions;
+        std::vector<std::size_t> deferredDeletions;
+        std::mutex deferredDeletionsMutex;
 
     public:
         // section for "temporary" structures {{{
@@ -191,6 +202,8 @@ namespace EC
             if(ThreadCount >= 2) {
                 threadPool = std::make_unique<ThreadPool<ThreadCount> >();
             }
+
+            deferringDeletions.store(0);
         }
 
     private:
@@ -247,6 +260,16 @@ namespace EC
             }
         }
 
+    private:
+        void deleteEntityImpl(std::size_t id) {
+            if(hasEntity(id)) {
+                std::get<bool>(entities.at(id)) = false;
+                std::get<BitsetType>(entities.at(id)).reset();
+                deletedSet.insert(id);
+            }
+        }
+
+    public:
         /*!
             \brief Marks an entity for deletion.
 
@@ -254,16 +277,28 @@ namespace EC
             addEntity is called. Thus calling addEntity may return an id of
             a previously deleted Entity.
         */
-        void deleteEntity(const std::size_t& index)
+        void deleteEntity(std::size_t index)
         {
-            if(hasEntity(index))
-            {
-                std::get<bool>(entities.at(index)) = false;
-                std::get<BitsetType>(entities.at(index)).reset();
-                deletedSet.insert(index);
+            if(deferringDeletions.load() != 0) {
+                std::lock_guard<std::mutex> lock(deferredDeletionsMutex);
+                deferredDeletions.push_back(index);
+            } else {
+                deleteEntityImpl(index);
             }
         }
 
+    private:
+        void handleDeferredDeletions() {
+            if(deferringDeletions.fetch_sub(1) == 1) {
+                std::lock_guard<std::mutex> lock(deferredDeletionsMutex);
+                for(std::size_t id : deferredDeletions) {
+                    deleteEntityImpl(id);
+                }
+                deferredDeletions.clear();
+            }
+        }
+
+    public:
 
         /*!
             \brief Checks if the Entity with the given ID is in the system.
@@ -603,6 +638,10 @@ namespace EC
             currentCapacity = 0;
             deletedSet.clear();
             resize(EC_INIT_ENTITIES_SIZE);
+
+            std::lock_guard<std::mutex> lock(deferredDeletionsMutex);
+            deferringDeletions.store(0);
+            deferredDeletions.clear();
         }
 
     private:
@@ -711,6 +750,7 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            deferringDeletions.fetch_add(1);
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
             using Helper =
@@ -786,6 +826,8 @@ namespace EC
                 }
                 threadPool->easyWakeAndWait();
             }
+
+            handleDeferredDeletions();
         }
 
         /*!
@@ -834,6 +876,7 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            deferringDeletions.fetch_add(1);
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
             using Helper =
@@ -908,6 +951,8 @@ namespace EC
                 }
                 threadPool->easyWakeAndWait();
             }
+
+            handleDeferredDeletions();
         }
 
 
@@ -972,6 +1017,7 @@ namespace EC
             Function&& function,
             void* userData = nullptr)
         {
+            deferringDeletions.fetch_add(1);
             while(forMatchingFunctions.find(functionIndex)
                 != forMatchingFunctions.end())
             {
@@ -1055,6 +1101,7 @@ namespace EC
                     }
                 })));
 
+            handleDeferredDeletions();
             return functionIndex++;
         }
 
@@ -1172,6 +1219,7 @@ namespace EC
         */
         void callForMatchingFunctions(const bool useThreadPool = false)
         {
+            deferringDeletions.fetch_add(1);
             std::vector<BitsetType*> bitsets;
             for(auto iter = forMatchingFunctions.begin();
                 iter != forMatchingFunctions.end();
@@ -1191,6 +1239,8 @@ namespace EC
                 std::get<2>(iter->second)(
                     useThreadPool, matching[i++], std::get<1>(iter->second));
             }
+
+            handleDeferredDeletions();
         }
 
         /*!
@@ -1230,11 +1280,14 @@ namespace EC
             {
                 return false;
             }
+            deferringDeletions.fetch_add(1);
             std::vector<std::vector<std::size_t> > matching =
                 getMatchingEntities(std::vector<BitsetType*>{
                     &std::get<BitsetType>(iter->second)}, useThreadPool);
             std::get<2>(iter->second)(
                 useThreadPool, matching[0], std::get<1>(iter->second));
+
+            handleDeferredDeletions();
             return true;
         }
 
@@ -1428,6 +1481,7 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            deferringDeletions.fetch_add(1);
             std::vector<std::vector<std::size_t> >
                 multiMatchingEntities(SigList::size);
             BitsetType signatureBitsets[SigList::size];
@@ -1578,6 +1632,8 @@ namespace EC
                     }
                 }
             );
+
+            handleDeferredDeletions();
         }
 
         /*!
@@ -1636,6 +1692,7 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            deferringDeletions.fetch_add(1);
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
                 SigList::size);
             BitsetType signatureBitsets[SigList::size];
@@ -1791,6 +1848,8 @@ namespace EC
                     }
                 }
             );
+
+            handleDeferredDeletions();
         }
 
         typedef void ForMatchingFn(std::size_t,
@@ -1818,6 +1877,7 @@ namespace EC
         void forMatchingSimple(ForMatchingFn fn, 
                                void *userData = nullptr,
                                const bool useThreadPool = false) {
+            deferringDeletions.fetch_add(1);
             const BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
             if(!useThreadPool || !threadPool) {
@@ -1872,6 +1932,8 @@ namespace EC
                 }
                 threadPool->easyWakeAndWait();
             }
+
+            handleDeferredDeletions();
         }
 
         /*!
@@ -1897,6 +1959,7 @@ namespace EC
                                  ForMatchingFn fn,
                                  void* userData = nullptr,
                                  const bool useThreadPool = false) {
+            deferringDeletions.fetch_add(1);
             if(!useThreadPool || !threadPool) {
                 bool isValid;
                 for(std::size_t i = 0; i < currentSize; ++i) {
@@ -1966,6 +2029,8 @@ namespace EC
                 }
                 threadPool->easyWakeAndWait();
             }
+
+            handleDeferredDeletions();
         }
     };
 }

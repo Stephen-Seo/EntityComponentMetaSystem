@@ -1399,3 +1399,35 @@ TEST(EC, ManagerWithLowThreadCount) {
         EXPECT_EQ(component->y, 1);
     }
 }
+
+TEST(EC, ManagerDeferredDeletions) {
+    using ManagerType = EC::Manager<ListComponentsAll, ListTagsAll, 8>;
+    ManagerType manager;
+
+    std::array<std::size_t, 24> entities;
+    for(std::size_t i = 0; i < entities.size(); ++i) {
+        entities.at(i) = manager.addEntity();
+        manager.addTag<T0>(entities.at(i));
+        if(i < entities.size() / 2) {
+            manager.addTag<T1>(entities.at(i));
+        }
+    }
+
+    auto dataTuple = std::tuple<decltype(manager)*, std::size_t>
+        {&manager, entities.size()};
+
+    manager.forMatchingSignature<EC::Meta::TypeList<T0, T1>>([] (std::size_t id, void *data) {
+        auto *tuple = (std::tuple<ManagerType*, std::size_t>*)data;
+        std::size_t size = std::get<1>(*tuple);
+        std::get<0>(*tuple)->deleteEntity(id + size / 4);
+    }, &dataTuple, true);
+
+    for(std::size_t i = 0; i < entities.size(); ++i) {
+        if (entities.at(i) >= entities.size() / 4
+                && entities.at(i) < entities.size() * 3 / 4) {
+            EXPECT_FALSE(manager.isAlive(entities.at(i)));
+        } else {
+            EXPECT_TRUE(manager.isAlive(entities.at(i)));
+        }
+    }
+}
