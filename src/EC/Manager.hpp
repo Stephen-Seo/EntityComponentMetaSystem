@@ -7,6 +7,7 @@
 #ifndef EC_MANAGER_HPP
 #define EC_MANAGER_HPP
 
+#include <chrono>
 #define EC_INIT_ENTITIES_SIZE 256
 #define EC_GROW_SIZE_AMOUNT 256
 
@@ -107,6 +108,10 @@ namespace EC
         std::vector<std::size_t> deferredDeletions;
         std::mutex deferredDeletionsMutex;
 
+        std::vector<std::size_t> idStack;
+        std::size_t idStackCounter;
+        std::mutex idStackMutex;
+
     public:
         // section for "temporary" structures {{{
         /// Temporary struct used internally by ThreadPool
@@ -196,7 +201,9 @@ namespace EC
             The default capacity is set with macro EC_INIT_ENTITIES_SIZE,
             and will grow by amounts of EC_GROW_SIZE_AMOUNT when needed.
         */
-        Manager()
+        Manager() :
+            threadPool{},
+            idStackCounter(0)
         {
             resize(EC_INIT_ENTITIES_SIZE);
             if(ThreadCount >= 2) {
@@ -204,6 +211,14 @@ namespace EC
             }
 
             deferringDeletions.store(0);
+        }
+
+        ~Manager() {
+            if (threadPool) {
+                while(!threadPool->isNotRunning()) {
+                    std::this_thread::sleep_for(std::chrono::microseconds(30));
+                }
+            }
         }
 
     private:
@@ -750,6 +765,13 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            std::size_t current_id;
+            {
+                // push to idStack "call stack"
+                std::lock_guard<std::mutex> lock(idStackMutex);
+                current_id = idStackCounter++;
+                idStack.push_back(current_id);
+            }
             deferringDeletions.fetch_add(1);
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
@@ -826,8 +848,20 @@ namespace EC
                         delete data;
                     }, fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
+
+            // pop from idStack "call stack"
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(idStackMutex);
+                    if (idStack.back() == current_id) {
+                        idStack.pop_back();
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(15));
+            } while (true);
 
             handleDeferredDeletions();
         }
@@ -878,6 +912,13 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            std::size_t current_id;
+            {
+                // push to idStack "call stack"
+                std::lock_guard<std::mutex> lock(idStackMutex);
+                current_id = idStackCounter++;
+                idStack.push_back(current_id);
+            }
             deferringDeletions.fetch_add(1);
             using SignatureComponents =
                 typename EC::Meta::Matching<Signature, ComponentsList>::type;
@@ -951,8 +992,20 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
+
+            // pop from idStack "call stack"
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(idStackMutex);
+                    if (idStack.back() == current_id) {
+                        idStack.pop_back();
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(15));
+            } while (true);
 
             handleDeferredDeletions();
         }
@@ -1099,7 +1152,7 @@ namespace EC
                                 }
                             }, &fnDataAr[i]);
                         }
-                        threadPool->easyWakeAndWait();
+                        threadPool->easyStartAndWait();
                     }
                 })));
 
@@ -1180,7 +1233,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
 
             return matchingV;
@@ -1483,6 +1536,13 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            std::size_t current_id;
+            {
+                // push to idStack "call stack"
+                std::lock_guard<std::mutex> lock(idStackMutex);
+                current_id = idStackCounter++;
+                idStack.push_back(current_id);
+            }
             deferringDeletions.fetch_add(1);
             std::vector<std::vector<std::size_t> >
                 multiMatchingEntities(SigList::size);
@@ -1565,7 +1625,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
 
             // call functions on matching entities
@@ -1630,10 +1690,22 @@ namespace EC
                                 }
                             }, &fnDataAr[i]);
                         }
-                        threadPool->easyWakeAndWait();
+                        threadPool->easyStartAndWait();
                     }
                 }
             );
+
+            // pop from idStack "call stack"
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(idStackMutex);
+                    if (idStack.back() == current_id) {
+                        idStack.pop_back();
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(15));
+            } while (true);
 
             handleDeferredDeletions();
         }
@@ -1694,6 +1766,13 @@ namespace EC
             void* userData = nullptr,
             const bool useThreadPool = false)
         {
+            std::size_t current_id;
+            {
+                // push to idStack "call stack"
+                std::lock_guard<std::mutex> lock(idStackMutex);
+                current_id = idStackCounter++;
+                idStack.push_back(current_id);
+            }
             deferringDeletions.fetch_add(1);
             std::vector<std::vector<std::size_t> > multiMatchingEntities(
                 SigList::size);
@@ -1776,7 +1855,7 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
 
             // call functions on matching entities
@@ -1846,10 +1925,22 @@ namespace EC
                                 }
                             }, &fnDataAr[i]);
                         }
-                        threadPool->easyWakeAndWait();
+                        threadPool->easyStartAndWait();
                     }
                 }
             );
+
+            // pop from idStack "call stack"
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(idStackMutex);
+                    if (idStack.back() == current_id) {
+                        idStack.pop_back();
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(15));
+            } while (true);
 
             handleDeferredDeletions();
         }
@@ -1879,6 +1970,13 @@ namespace EC
         void forMatchingSimple(ForMatchingFn fn,
                                void *userData = nullptr,
                                const bool useThreadPool = false) {
+            std::size_t current_id;
+            {
+                // push to idStack "call stack"
+                std::lock_guard<std::mutex> lock(idStackMutex);
+                current_id = idStackCounter++;
+                idStack.push_back(current_id);
+            }
             deferringDeletions.fetch_add(1);
             const BitsetType signatureBitset =
                 BitsetType::template generateBitset<Signature>();
@@ -1934,8 +2032,20 @@ namespace EC
                         delete data;
                     }, fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
+
+            // pop from idStack "call stack"
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(idStackMutex);
+                    if (idStack.back() == current_id) {
+                        idStack.pop_back();
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(15));
+            } while (true);
 
             handleDeferredDeletions();
         }
@@ -1959,10 +2069,18 @@ namespace EC
             may not have as great of a speed-up.
          */
         template <typename Iterable>
-        void forMatchingIterable(Iterable iterable, 
+        void forMatchingIterable(Iterable iterable,
                                  ForMatchingFn fn,
                                  void* userData = nullptr,
                                  const bool useThreadPool = false) {
+            std::size_t current_id;
+            {
+                // push to idStack "call stack"
+                std::lock_guard<std::mutex> lock(idStackMutex);
+                current_id = idStackCounter++;
+                idStack.push_back(current_id);
+            }
+
             deferringDeletions.fetch_add(1);
             if(!useThreadPool || !threadPool) {
                 bool isValid;
@@ -2031,8 +2149,20 @@ namespace EC
                         }
                     }, &fnDataAr[i]);
                 }
-                threadPool->easyWakeAndWait();
+                threadPool->easyStartAndWait();
             }
+
+            // pop from idStack "call stack"
+            do {
+                {
+                    std::lock_guard<std::mutex> lock(idStackMutex);
+                    if (idStack.back() == current_id) {
+                        idStack.pop_back();
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(15));
+            } while (true);
 
             handleDeferredDeletions();
         }

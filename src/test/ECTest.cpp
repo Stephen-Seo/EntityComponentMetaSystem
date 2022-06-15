@@ -1458,8 +1458,8 @@ TEST(EC, NestedThreadPoolTasks) {
                 EXPECT_NE(outer_c->x, inner_c->x);
                 EXPECT_NE(outer_c->y, inner_c->y);
             }
-        }, c, false);
+        }, c, true);
     }, &manager, true);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
