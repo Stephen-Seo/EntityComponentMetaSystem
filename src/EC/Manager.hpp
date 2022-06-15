@@ -114,7 +114,7 @@ namespace EC
             std::array<std::size_t, 2> range;
             Manager *manager;
             EntitiesType *entities;
-            const BitsetType *signature;
+            BitsetType signature;
             void *userData;
             std::unordered_set<std::size_t> dead;
         };
@@ -779,7 +779,7 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructZero, ThreadCount * 2> fnDataAr;
+                std::array<TPFnDataStructZero*, ThreadCount * 2> fnDataAr;
 
                 std::size_t s = currentSize / (ThreadCount * 2);
                 for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
@@ -793,14 +793,15 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    fnDataAr[i].range = {begin, end};
-                    fnDataAr[i].manager = this;
-                    fnDataAr[i].entities = &entities;
-                    fnDataAr[i].signature = &signatureBitset;
-                    fnDataAr[i].userData = userData;
+                    fnDataAr[i] = new TPFnDataStructZero{};
+                    fnDataAr[i]->range = {begin, end};
+                    fnDataAr[i]->manager = this;
+                    fnDataAr[i]->entities = &entities;
+                    fnDataAr[i]->signature = signatureBitset;
+                    fnDataAr[i]->userData = userData;
                     for(std::size_t j = begin; j < end; ++j) {
                         if(!isAlive(j)) {
-                            fnDataAr[i].dead.insert(j);
+                            fnDataAr[i]->dead.insert(j);
                         }
                     }
 
@@ -812,17 +813,18 @@ namespace EC
                                 continue;
                             }
 
-                            if(((*data->signature)
+                            if(((data->signature)
                                         & std::get<BitsetType>(
                                             data->entities->at(i)))
-                                    == *data->signature) {
+                                    == data->signature) {
                                 Helper::call(i,
                                              *data->manager,
                                              std::forward<Function>(function),
                                              data->userData);
                             }
                         }
-                    }, &fnDataAr[i]);
+                        delete data;
+                    }, fnDataAr[i]);
                 }
                 threadPool->easyWakeAndWait();
             }
@@ -1874,7 +1876,7 @@ namespace EC
             may not have as great of a speed-up.
          */
         template <typename Signature>
-        void forMatchingSimple(ForMatchingFn fn, 
+        void forMatchingSimple(ForMatchingFn fn,
                                void *userData = nullptr,
                                const bool useThreadPool = false) {
             deferringDeletions.fetch_add(1);
@@ -1891,7 +1893,7 @@ namespace EC
                     }
                 }
             } else {
-                std::array<TPFnDataStructZero, ThreadCount * 2> fnDataAr;
+                std::array<TPFnDataStructZero*, ThreadCount * 2> fnDataAr;
 
                 std::size_t s = currentSize / (ThreadCount * 2);
                 for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
@@ -1905,14 +1907,15 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    fnDataAr[i].range = {begin, end};
-                    fnDataAr[i].manager = this;
-                    fnDataAr[i].entities = &entities;
-                    fnDataAr[i].signature = &signatureBitset;
-                    fnDataAr[i].userData = userData;
+                    fnDataAr[i] = new TPFnDataStructZero{};
+                    fnDataAr[i]->range = {begin, end};
+                    fnDataAr[i]->manager = this;
+                    fnDataAr[i]->entities = &entities;
+                    fnDataAr[i]->signature = signatureBitset;
+                    fnDataAr[i]->userData = userData;
                     for(std::size_t j = begin; j < end; ++j) {
                         if(!isAlive(j)) {
-                            fnDataAr[i].dead.insert(j);
+                            fnDataAr[i]->dead.insert(j);
                         }
                     }
                     threadPool->queueFn([&fn] (void *ud) {
@@ -1921,14 +1924,15 @@ namespace EC
                                 ++i) {
                             if(data->dead.find(i) != data->dead.end()) {
                                 continue;
-                            } else if((*data->signature
+                            } else if((data->signature
                                         & std::get<BitsetType>(
                                             data->entities->at(i)))
-                                    == *data->signature) {
+                                    == data->signature) {
                                 fn(i, data->manager, data->userData);
                             }
                         }
-                    }, &fnDataAr[i]);
+                        delete data;
+                    }, fnDataAr[i]);
                 }
                 threadPool->easyWakeAndWait();
             }

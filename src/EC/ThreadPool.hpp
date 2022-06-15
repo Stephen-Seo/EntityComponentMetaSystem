@@ -11,6 +11,11 @@
 #include <functional>
 #include <tuple>
 #include <chrono>
+#include <unordered_set>
+
+#ifndef NDEBUG
+# include <iostream>
+#endif
 
 namespace EC {
 
@@ -18,6 +23,39 @@ namespace Internal {
     using TPFnType = std::function<void(void*)>;
     using TPTupleType = std::tuple<TPFnType, void*>;
     using TPQueueType = std::queue<TPTupleType>;
+
+    template <unsigned int SIZE>
+    void thread_fn(std::atomic_bool *isAlive,
+                   std::condition_variable *cv,
+                   std::mutex *cvMutex,
+                   Internal::TPQueueType *fnQueue,
+                   std::mutex *queueMutex,
+                   std::atomic_int *waitCount) {
+        bool hasFn = false;
+        Internal::TPTupleType fnTuple;
+        while(isAlive->load()) {
+            hasFn = false;
+            {
+                std::lock_guard<std::mutex> lock(*queueMutex);
+                if(!fnQueue->empty()) {
+                    fnTuple = fnQueue->front();
+                    fnQueue->pop();
+                    hasFn = true;
+                }
+            }
+            if(hasFn) {
+                std::get<0>(fnTuple)(std::get<1>(fnTuple));
+                continue;
+            }
+
+            waitCount->fetch_add(1);
+            {
+                std::unique_lock<std::mutex> lock(*cvMutex);
+                cv->wait(lock);
+            }
+            waitCount->fetch_sub(1);
+        }
+    }
 } // namespace Internal
 
 /*!
@@ -29,49 +67,20 @@ namespace Internal {
 template <unsigned int SIZE>
 class ThreadPool {
 public:
-    ThreadPool() : waitCount(0) {
+    ThreadPool() {
+        waitCount.store(0);
+        extraThreadCount.store(0);
         isAlive.store(true);
         if(SIZE >= 2) {
             for(unsigned int i = 0; i < SIZE; ++i) {
-                threads.emplace_back([] (std::atomic_bool *isAlive,
-                                         std::condition_variable *cv,
-                                         std::mutex *cvMutex,
-                                         Internal::TPQueueType *fnQueue,
-                                         std::mutex *queueMutex,
-                                         int *waitCount,
-                                         std::mutex *waitCountMutex) {
-                    bool hasFn = false;
-                    Internal::TPTupleType fnTuple;
-                    while(isAlive->load()) {
-                        hasFn = false;
-                        {
-                            std::lock_guard<std::mutex> lock(*queueMutex);
-                            if(!fnQueue->empty()) {
-                                fnTuple = fnQueue->front();
-                                fnQueue->pop();
-                                hasFn = true;
-                            }
-                        }
-                        if(hasFn) {
-                            std::get<0>(fnTuple)(std::get<1>(fnTuple));
-                            continue;
-                        }
-
-                        {
-                            std::lock_guard<std::mutex> lock(*waitCountMutex);
-                            *waitCount += 1;
-                        }
-                        {
-                            std::unique_lock<std::mutex> lock(*cvMutex);
-                            cv->wait(lock);
-                        }
-                        {
-                            std::lock_guard<std::mutex> lock(*waitCountMutex);
-                            *waitCount -= 1;
-                        }
-                    }
-                }, &isAlive, &cv, &cvMutex, &fnQueue, &queueMutex, &waitCount,
-                   &waitCountMutex);
+                threads.emplace_back(Internal::thread_fn<SIZE>,
+                                     &isAlive,
+                                     &cv,
+                                     &cvMutex,
+                                     &fnQueue,
+                                     &queueMutex,
+                                     &waitCount);
+                threadsIDs.insert(threads.back().get_id());
             }
         }
     }
@@ -84,6 +93,7 @@ public:
             for(auto &thread : threads) {
                 thread.join();
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     }
 
@@ -108,13 +118,43 @@ public:
         If SIZE is 2 or greater, then this function will return immediately after
         waking one or all threads, depending on the given boolean parameter.
     */
-    void wakeThreads(bool wakeAll = true) {
+    void wakeThreads(const bool wakeAll = true) {
         if(SIZE >= 2) {
             // wake threads to pull functions from queue and run them
             if(wakeAll) {
                 cv.notify_all();
             } else {
                 cv.notify_one();
+            }
+
+            // check if all threads are running a task, and spawn a new thread
+            // if this is the case
+            Internal::TPTupleType fnTuple;
+            bool hasFn = false;
+            if (waitCount.load(std::memory_order_relaxed) == 0) {
+                std::lock_guard<std::mutex> queueLock(queueMutex);
+                if (!fnQueue.empty()) {
+                    fnTuple = fnQueue.front();
+                    fnQueue.pop();
+                    hasFn = true;
+                }
+            }
+
+            if (hasFn) {
+#ifndef NDEBUG
+                std::cout << "Spawning extra thread...\n";
+#endif
+                extraThreadCount.fetch_add(1);
+                std::thread newThread = std::thread(
+                        [] (Internal::TPTupleType &&tuple, std::atomic_int *count) {
+                            std::get<0>(tuple)(std::get<1>(tuple));
+#ifndef NDEBUG
+                            std::cout << "Stopping extra thread...\n";
+#endif
+                            count->fetch_sub(1);
+                        },
+                        std::move(fnTuple), &extraThreadCount);
+                newThread.detach();
             }
         } else {
             sequentiallyRunTasks();
@@ -129,8 +169,7 @@ public:
         If SIZE is less than 2, then this will always return 0.
     */
     int getWaitCount() {
-        std::lock_guard<std::mutex> lock(waitCountMutex);
-        return waitCount;
+        return waitCount.load(std::memory_order_relaxed);
     }
 
     /*!
@@ -140,8 +179,7 @@ public:
     */
     bool isAllThreadsWaiting() {
         if(SIZE >= 2) {
-            std::lock_guard<std::mutex> lock(waitCountMutex);
-            return waitCount == SIZE;
+            return waitCount.load(std::memory_order_relaxed) == SIZE;
         } else {
             return true;
         }
@@ -173,10 +211,13 @@ public:
      */
     void easyWakeAndWait() {
         if(SIZE >= 2) {
-            wakeThreads();
             do {
+                wakeThreads();
                 std::this_thread::sleep_for(std::chrono::microseconds(150));
-            } while(!isQueueEmpty() || !isAllThreadsWaiting());
+            } while(!isQueueEmpty()
+                    || (threadsIDs.find(std::this_thread::get_id()) != threadsIDs.end()
+                         && extraThreadCount.load(std::memory_order_relaxed) != 0));
+//            } while(!isQueueEmpty() || !isAllThreadsWaiting());
         } else {
             sequentiallyRunTasks();
         }
@@ -184,13 +225,14 @@ public:
 
 private:
     std::vector<std::thread> threads;
+    std::unordered_set<std::thread::id> threadsIDs;
     std::atomic_bool isAlive;
     std::condition_variable cv;
     std::mutex cvMutex;
     Internal::TPQueueType fnQueue;
     std::mutex queueMutex;
-    int waitCount;
-    std::mutex waitCountMutex;
+    std::atomic_int waitCount;
+    std::atomic_int extraThreadCount;
 
     void sequentiallyRunTasks() {
         // pull functions from queue and run them on current thread
