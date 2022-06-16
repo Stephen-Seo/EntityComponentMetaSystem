@@ -6,8 +6,8 @@
 #include <deque>
 #include <functional>
 #include <list>
-#include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <thread>
 #include <tuple>
@@ -23,8 +23,8 @@ namespace Internal {
 using TPFnType = std::function<void(void *)>;
 using TPTupleType = std::tuple<TPFnType, void *>;
 using TPQueueType = std::queue<TPTupleType>;
-using ThreadPtr = std::unique_ptr<std::thread>;
-using ThreadStackType = std::vector<std::tuple<ThreadPtr, std::thread::id>>;
+using ThreadOpt = std::optional<std::thread>;
+using ThreadStackType = std::vector<std::tuple<ThreadOpt, std::thread::id>>;
 using ThreadStacksType = std::deque<ThreadStackType>;
 using ThreadStacksMutexesT = std::deque<std::mutex>;
 using ThreadCountersT = std::deque<std::atomic_uint>;
@@ -82,7 +82,7 @@ class ThreadPool {
             std::mutex *threadStackMutex = std::get<1>(pointers);
             std::atomic_uint *aCounter = std::get<2>(pointers);
             for (unsigned int i = 0; i < MAXSIZE; ++i) {
-                std::thread *newThread = new std::thread(
+                std::thread newThread(
                     [](Internal::ThreadStackType *threadStack,
                        std::mutex *threadStackMutex,
                        Internal::TPQueueType *fnQueue, std::mutex *queueMutex,
@@ -91,7 +91,7 @@ class ThreadPool {
                         {
                             std::lock_guard<std::mutex> lock(*threadStackMutex);
                             threadStack->push_back(
-                                {Internal::ThreadPtr(nullptr),
+                                {Internal::ThreadOpt{},
                                  std::this_thread::get_id()});
                         }
 
@@ -149,7 +149,7 @@ class ThreadPool {
                     std::this_thread::sleep_for(std::chrono::microseconds(15));
                 }
                 std::lock_guard<std::mutex> stackLock(*threadStackMutex);
-                std::get<0>(threadStack->at(i)).reset(newThread);
+                std::get<0>(threadStack->at(i)) = std::move(newThread);
             }
             return pointers;
         } else {
