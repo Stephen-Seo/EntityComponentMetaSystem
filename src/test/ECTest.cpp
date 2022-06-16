@@ -1,7 +1,9 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <iostream>
+#include <thread>
 #include <tuple>
 #include <memory>
 #include <unordered_map>
@@ -1430,4 +1432,34 @@ TEST(EC, ManagerDeferredDeletions) {
             EXPECT_TRUE(manager.isAlive(entities.at(i)));
         }
     }
+}
+
+TEST(EC, NestedThreadPoolTasks) {
+    using ManagerType = EC::Manager<ListComponentsAll, ListTagsAll, 2>;
+    ManagerType manager;
+
+    std::array<std::size_t, 64> entities;
+    for (auto &entity : entities) {
+        entity = manager.addEntity();
+        manager.addComponent<C0>(entity, entity, entity);
+    }
+
+    manager.forMatchingSignature<EC::Meta::TypeList<C0>>([] (std::size_t id, void *data, C0 *c) {
+        ManagerType *manager = (ManagerType*)data;
+
+        manager->forMatchingSignature<EC::Meta::TypeList<C0>>([id] (std::size_t inner_id, void* data, C0 *inner_c) {
+            const C0 *const outer_c = (C0*)data;
+            EXPECT_EQ(id, outer_c->x);
+            EXPECT_EQ(inner_id, inner_c->x);
+            if (id == inner_id) {
+                EXPECT_EQ(outer_c->x, inner_c->x);
+                EXPECT_EQ(outer_c->y, inner_c->y);
+            } else {
+                EXPECT_NE(outer_c->x, inner_c->x);
+                EXPECT_NE(outer_c->y, inner_c->y);
+            }
+        }, c, true);
+    }, &manager, true);
+
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
