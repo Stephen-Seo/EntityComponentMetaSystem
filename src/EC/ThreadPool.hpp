@@ -29,8 +29,8 @@ using ThreadStacksType = std::deque<ThreadStackType>;
 using ThreadStacksMutexesT = std::deque<std::mutex>;
 using ThreadCountersT = std::deque<std::atomic_uint>;
 using PtrsHoldT = std::deque<std::atomic_bool>;
-using PointersT =
-    std::tuple<ThreadStackType *, std::mutex *, std::atomic_uint *, std::atomic_bool *>;
+using PointersT = std::tuple<ThreadStackType *, std::mutex *,
+                             std::atomic_uint *, std::atomic_bool *>;
 }  // namespace Internal
 
 /*!
@@ -196,7 +196,8 @@ class ThreadPool {
             if (std::get<0>(pointers)) {
                 do {
                     {
-                        std::lock_guard<std::mutex> lock(*std::get<1>(pointers));
+                        std::lock_guard<std::mutex> lock(
+                            *std::get<1>(pointers));
                         if (std::get<0>(pointers)->empty()) {
                             std::get<3>(pointers)->store(false);
                             break;
