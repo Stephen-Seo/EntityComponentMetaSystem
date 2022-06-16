@@ -1,9 +1,8 @@
 var searchData=
 [
-  ['getcurrentsize_25',['getCurrentSize',['../structEC_1_1Manager.html#a12829c05964314a465d18be7cd6394ab',1,'EC::Manager']]],
-  ['getentitycomponent_26',['getEntityComponent',['../structEC_1_1Manager.html#aec42ceb05bb806b3e415d953c7fee1a3',1,'EC::Manager::getEntityComponent(const std::size_t &amp;index)'],['../structEC_1_1Manager.html#a9752d6243b0cf9ca72e68f8b8cffa537',1,'EC::Manager::getEntityComponent(const std::size_t &amp;index) const']]],
-  ['getentitydata_27',['getEntityData',['../structEC_1_1Manager.html#aae619b4639f25d39c5acec2c423679bf',1,'EC::Manager::getEntityData(const std::size_t &amp;index)'],['../structEC_1_1Manager.html#ac738034ce2772e7c33e63d905ae02442',1,'EC::Manager::getEntityData(const std::size_t &amp;index) const']]],
-  ['getentityinfo_28',['getEntityInfo',['../structEC_1_1Manager.html#af44a510bf189f2be56b89bca2187218a',1,'EC::Manager']]],
-  ['getthreadcount_29',['getThreadCount',['../classEC_1_1ThreadPool.html#a1658f58f5ce37088b096cd4cc304db39',1,'EC::ThreadPool']]],
-  ['getwaitcount_30',['getWaitCount',['../classEC_1_1ThreadPool.html#a26bbe59d2b8c1a845146e771b8713f3b',1,'EC::ThreadPool']]]
+  ['getcurrentsize_0',['getCurrentSize',['../structEC_1_1Manager.html#a12829c05964314a465d18be7cd6394ab',1,'EC::Manager']]],
+  ['getentitycomponent_1',['getEntityComponent',['../structEC_1_1Manager.html#acea49c58cba37c54e6d9021c1a7bc210',1,'EC::Manager::getEntityComponent(const std::size_t &amp;index)'],['../structEC_1_1Manager.html#ad22163ca4ec38109d3edcfc44ced0462',1,'EC::Manager::getEntityComponent(const std::size_t &amp;index) const']]],
+  ['getentitydata_2',['getEntityData',['../structEC_1_1Manager.html#a975e5d330498c539aad18b50a7a99855',1,'EC::Manager::getEntityData(const std::size_t &amp;index)'],['../structEC_1_1Manager.html#a6fdc940ba41c2fb2c914d52e6fdc32d1',1,'EC::Manager::getEntityData(const std::size_t &amp;index) const']]],
+  ['getentityinfo_3',['getEntityInfo',['../structEC_1_1Manager.html#ae50ecc7982c372d93ce3c926bb218506',1,'EC::Manager']]],
+  ['getmaxthreadcount_4',['getMaxThreadCount',['../classEC_1_1ThreadPool.html#a0613a5b068f6742a554c583c72391de0',1,'EC::ThreadPool']]]
 ];

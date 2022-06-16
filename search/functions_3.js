@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['easywakeandwait_107',['easyWakeAndWait',['../classEC_1_1ThreadPool.html#ab8573c765354411608a24a93a41a54be',1,'EC::ThreadPool']]]
+  ['easystartandwait_0',['easyStartAndWait',['../classEC_1_1ThreadPool.html#a88f30ce8f39ab7dcb9170037f091fe29',1,'EC::ThreadPool']]]
 ];
