@@ -36,8 +36,8 @@ using PointersT =
 /*!
     \brief Implementation of a Thread Pool.
 
-    Note that if SIZE is less than 2, then ThreadPool will not create threads
-    and run queued functions on the calling thread.
+    Note that MAXSIZE template parameter determines how many threads are created
+    each time that startThreads() (or easyStartAndWait()) is called.
 */
 template <unsigned int MAXSIZE>
 class ThreadPool {
@@ -54,15 +54,26 @@ class ThreadPool {
     /*!
         \brief Queues a function to be called (doesn't start calling yet).
 
-        To run the queued functions, wakeThreads() must be called to wake the
+        To run the queued functions, startThreads() must be called to wake the
         waiting threads which will start pulling functions from the queue to be
         called.
+
+        Note that the easyStartAndWait() calls startThreads() and waits until
+        the threads have finished execution.
     */
     void queueFn(std::function<void(void *)> &&fn, void *ud = nullptr) {
         std::lock_guard<std::mutex> lock(queueMutex);
         fnQueue.emplace(std::make_tuple(fn, ud));
     }
 
+    /*!
+        \brief Creates MAXSIZE threads that will process queueFn() functions.
+
+        Note that if MAXSIZE < 2, then this function will synchronously execute
+        the queued functions and block until the functions have been executed.
+        Otherwise, this function may return before the queued functions have
+        been executed.
+     */
     Internal::PointersT startThreads() {
         if (MAXSIZE >= 2) {
             checkStacks();
@@ -132,14 +143,13 @@ class ThreadPool {
                     },
                     threadStack, threadStackMutex, &fnQueue, &queueMutex,
                     aCounter);
+                // Wait until thread has pushed to threadStack before setting
+                // the handle to it
                 while (aCounter->load() != i + 1) {
                     std::this_thread::sleep_for(std::chrono::microseconds(15));
                 }
                 std::lock_guard<std::mutex> stackLock(*threadStackMutex);
                 std::get<0>(threadStack->at(i)).reset(newThread);
-            }
-            while (aCounter->load() != MAXSIZE) {
-                std::this_thread::sleep_for(std::chrono::microseconds(15));
             }
             return pointers;
         } else {
@@ -157,10 +167,16 @@ class ThreadPool {
     }
 
     /*!
-        \brief Returns the ThreadCount that this class was created with.
+        \brief Returns the MAXSIZE count that this class was created with.
      */
     constexpr unsigned int getMaxThreadCount() { return MAXSIZE; }
 
+    /*!
+        \brief Calls startThreads() and waits until all threads have finished.
+
+        Regardless of the value set to MAXSIZE, this function will block until
+        all previously queued functions have been executed.
+     */
     void easyStartAndWait() {
         if (MAXSIZE >= 2) {
             Internal::PointersT pointers = startThreads();
@@ -194,6 +210,10 @@ class ThreadPool {
         }
     }
 
+    /*!
+        \brief Checks if any threads are currently running, returning true if
+        there are no threads running.
+     */
     bool isNotRunning() {
         std::lock_guard<std::mutex> lock(dequesMutex);
         auto tIter = threadStacks.begin();
