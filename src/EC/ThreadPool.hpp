@@ -125,9 +125,6 @@ class ThreadPool {
                                     }
                                     std::get<0>(threadStack->back())->detach();
                                     threadStack->pop_back();
-                                    if (threadStack->empty()) {
-                                        initCount->store(0);
-                                    }
                                     break;
                                 }
                             }
