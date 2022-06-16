@@ -62,7 +62,7 @@ class ThreadPool {
         fnQueue.emplace(std::make_tuple(fn, ud));
     }
 
-    void startThreads() {
+    Internal::PointersT startThreads() {
         if (MAXSIZE >= 2) {
             checkStacks();
             auto pointers = newStackEntry();
@@ -143,9 +143,11 @@ class ThreadPool {
             while (aCounter->load() != MAXSIZE) {
                 std::this_thread::sleep_for(std::chrono::microseconds(15));
             }
+            return pointers;
         } else {
             sequentiallyRunTasks();
         }
+        return {nullptr, nullptr, nullptr};
     }
 
     /*!
@@ -163,7 +165,7 @@ class ThreadPool {
 
     void easyStartAndWait() {
         if (MAXSIZE >= 2) {
-            startThreads();
+            Internal::PointersT pointers = startThreads();
             do {
                 std::this_thread::sleep_for(std::chrono::microseconds(30));
 
@@ -177,6 +179,17 @@ class ThreadPool {
                     break;
                 }
             } while (true);
+            if (std::get<0>(pointers)) {
+                do {
+                    {
+                        std::lock_guard<std::mutex> lock(*std::get<1>(pointers));
+                        if (std::get<0>(pointers)->empty()) {
+                            break;
+                        }
+                    }
+                    std::this_thread::sleep_for(std::chrono::microseconds(15));
+                } while (true);
+            }
         } else {
             sequentiallyRunTasks();
         }

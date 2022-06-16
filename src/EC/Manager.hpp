@@ -801,7 +801,7 @@ namespace EC
             }
             else
             {
-                std::array<TPFnDataStructZero*, ThreadCount * 2> fnDataAr;
+                std::array<TPFnDataStructZero, ThreadCount * 2> fnDataAr;
 
                 std::size_t s = currentSize / (ThreadCount * 2);
                 for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
@@ -815,15 +815,14 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    fnDataAr[i] = new TPFnDataStructZero{};
-                    fnDataAr[i]->range = {begin, end};
-                    fnDataAr[i]->manager = this;
-                    fnDataAr[i]->entities = &entities;
-                    fnDataAr[i]->signature = signatureBitset;
-                    fnDataAr[i]->userData = userData;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].signature = signatureBitset;
+                    fnDataAr[i].userData = userData;
                     for(std::size_t j = begin; j < end; ++j) {
                         if(!isAlive(j)) {
-                            fnDataAr[i]->dead.insert(j);
+                            fnDataAr[i].dead.insert(j);
                         }
                     }
 
@@ -845,8 +844,7 @@ namespace EC
                                              data->userData);
                             }
                         }
-                        delete data;
-                    }, fnDataAr[i]);
+                    }, &fnDataAr[i]);
                 }
                 threadPool->easyStartAndWait();
             }
@@ -1991,7 +1989,7 @@ namespace EC
                     }
                 }
             } else {
-                std::array<TPFnDataStructZero*, ThreadCount * 2> fnDataAr;
+                std::array<TPFnDataStructZero, ThreadCount * 2> fnDataAr;
 
                 std::size_t s = currentSize / (ThreadCount * 2);
                 for(std::size_t i = 0; i < ThreadCount * 2; ++i) {
@@ -2005,15 +2003,14 @@ namespace EC
                     if(begin == end) {
                         continue;
                     }
-                    fnDataAr[i] = new TPFnDataStructZero{};
-                    fnDataAr[i]->range = {begin, end};
-                    fnDataAr[i]->manager = this;
-                    fnDataAr[i]->entities = &entities;
-                    fnDataAr[i]->signature = signatureBitset;
-                    fnDataAr[i]->userData = userData;
+                    fnDataAr[i].range = {begin, end};
+                    fnDataAr[i].manager = this;
+                    fnDataAr[i].entities = &entities;
+                    fnDataAr[i].signature = signatureBitset;
+                    fnDataAr[i].userData = userData;
                     for(std::size_t j = begin; j < end; ++j) {
                         if(!isAlive(j)) {
-                            fnDataAr[i]->dead.insert(j);
+                            fnDataAr[i].dead.insert(j);
                         }
                     }
                     threadPool->queueFn([&fn] (void *ud) {
@@ -2029,8 +2026,7 @@ namespace EC
                                 fn(i, data->manager, data->userData);
                             }
                         }
-                        delete data;
-                    }, fnDataAr[i]);
+                    }, &fnDataAr[i]);
                 }
                 threadPool->easyStartAndWait();
             }
