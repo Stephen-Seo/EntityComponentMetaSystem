@@ -16,22 +16,22 @@ TEST(ECThreadPool, OneThread) {
 
     p.queueFn(fn, &data);
 
-    p.wakeThreads();
+    p.startThreads();
 
     do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    } while(!p.isQueueEmpty() || !p.isAllThreadsWaiting());
+    } while(!p.isQueueEmpty() || !p.isNotRunning());
 
     ASSERT_EQ(data.load(), 1);
 
     for(unsigned int i = 0; i < 10; ++i) {
         p.queueFn(fn, &data);
     }
-    p.wakeThreads();
+    p.startThreads();
 
     do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    } while(!p.isQueueEmpty() || !p.isAllThreadsWaiting());
+    } while(!p.isQueueEmpty() || !p.isNotRunning());
 
     ASSERT_EQ(data.load(), 11);
 }
@@ -47,22 +47,22 @@ TEST(ECThreadPool, Simple) {
 
     p.queueFn(fn, &data);
 
-    p.wakeThreads();
+    p.startThreads();
 
     do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    } while(!p.isQueueEmpty() || !p.isAllThreadsWaiting());
+    } while(!p.isQueueEmpty() || !p.isNotRunning());
 
     ASSERT_EQ(data.load(), 1);
 
     for(unsigned int i = 0; i < 10; ++i) {
         p.queueFn(fn, &data);
     }
-    p.wakeThreads();
+    p.startThreads();
 
     do {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    } while(!p.isQueueEmpty() || !p.isAllThreadsWaiting());
+    } while(!p.isQueueEmpty() || !p.isNotRunning());
 
     ASSERT_EQ(data.load(), 11);
 }
@@ -70,15 +70,15 @@ TEST(ECThreadPool, Simple) {
 TEST(ECThreadPool, QueryCount) {
     {
         OneThreadPool oneP;
-        ASSERT_EQ(1, oneP.getThreadCount());
+        ASSERT_EQ(1, oneP.getMaxThreadCount());
     }
     {
         ThreeThreadPool threeP;
-        ASSERT_EQ(3, threeP.getThreadCount());
+        ASSERT_EQ(3, threeP.getMaxThreadCount());
     }
 }
 
-TEST(ECThreadPool, easyWakeAndWait) {
+TEST(ECThreadPool, easyStartAndWait) {
     std::atomic_int data;
     data.store(0);
     {
@@ -89,7 +89,7 @@ TEST(ECThreadPool, easyWakeAndWait) {
                 atomicInt->fetch_add(1);
             }, &data);
         }
-        oneP.easyWakeAndWait();
+        oneP.easyStartAndWait();
         EXPECT_EQ(20, data.load());
     }
     {
@@ -100,7 +100,7 @@ TEST(ECThreadPool, easyWakeAndWait) {
                 atomicInt->fetch_add(1);
             }, &data);
         }
-        threeP.easyWakeAndWait();
+        threeP.easyStartAndWait();
         EXPECT_EQ(40, data.load());
     }
 }
