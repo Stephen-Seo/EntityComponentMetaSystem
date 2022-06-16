@@ -119,7 +119,7 @@ namespace EC
             std::array<std::size_t, 2> range;
             Manager *manager;
             EntitiesType *entities;
-            BitsetType signature;
+            const BitsetType *signature;
             void *userData;
             std::unordered_set<std::size_t> dead;
         };
@@ -818,7 +818,7 @@ namespace EC
                     fnDataAr[i].range = {begin, end};
                     fnDataAr[i].manager = this;
                     fnDataAr[i].entities = &entities;
-                    fnDataAr[i].signature = signatureBitset;
+                    fnDataAr[i].signature = &signatureBitset;
                     fnDataAr[i].userData = userData;
                     for(std::size_t j = begin; j < end; ++j) {
                         if(!isAlive(j)) {
@@ -834,10 +834,10 @@ namespace EC
                                 continue;
                             }
 
-                            if(((data->signature)
+                            if(((*data->signature)
                                         & std::get<BitsetType>(
                                             data->entities->at(i)))
-                                    == data->signature) {
+                                    == *data->signature) {
                                 Helper::call(i,
                                              *data->manager,
                                              std::forward<Function>(function),
@@ -2006,7 +2006,7 @@ namespace EC
                     fnDataAr[i].range = {begin, end};
                     fnDataAr[i].manager = this;
                     fnDataAr[i].entities = &entities;
-                    fnDataAr[i].signature = signatureBitset;
+                    fnDataAr[i].signature = &signatureBitset;
                     fnDataAr[i].userData = userData;
                     for(std::size_t j = begin; j < end; ++j) {
                         if(!isAlive(j)) {
@@ -2019,10 +2019,10 @@ namespace EC
                                 ++i) {
                             if(data->dead.find(i) != data->dead.end()) {
                                 continue;
-                            } else if((data->signature
+                            } else if((*data->signature
                                         & std::get<BitsetType>(
                                             data->entities->at(i)))
-                                    == data->signature) {
+                                    == *data->signature) {
                                 fn(i, data->manager, data->userData);
                             }
                         }
