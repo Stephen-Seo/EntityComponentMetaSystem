@@ -9,6 +9,8 @@ built and run using cmake (gtest is a dependency).
 
 [Check this repository's gh-pages documentation on ECMS](https://stephen-seo.github.io/EntityComponentMetaSystem/)
 
+[Alternatively, check out the doxygen docs hosted on my website](https://seodisparate.com/ecms_docs/)
+
 # Compiling the UnitTests
 
 Create a build directory.  
