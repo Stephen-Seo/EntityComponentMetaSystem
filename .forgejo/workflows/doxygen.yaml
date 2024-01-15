@@ -1,0 +1,14 @@
+name: Publish doxygen documentation to seodisparate.com
+on:
+  push:
+    branches:
+      - 'master'
+
+jobs:
+  doxygen-gen-and-publish:
+    runs-on: archLinux
+    steps:
+      - run: git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/EntityComponentMetaSystem.git ECMS
+      - run: cd ECMS && git checkout master
+      - run: cd ECMS && doxygen
+      - run: rsync -r --delete ECMS/doxygen_html/html/ /srv/http/ECMS_docs/
