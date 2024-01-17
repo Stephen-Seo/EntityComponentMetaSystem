@@ -1,0 +1,18 @@
+name: Run UnitTests
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  build-and-run-unittests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo /usr/bin/env DEBIAN_FRONTEND=noninteractive apt-get install libgtest-dev cmake
+      - name: Get sources
+        run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/EntityComponentMetaSystem.git ECMS && cd ECMS && git checkout $GITHUB_REF_NAME
+      - name: Build UnitTests
+        run: cd ECMS && cmake -S src -B buildDebug -DCMAKE_BUILD_TYPE=Debug && make -C buildDebug
+      - name: Run UnitTests
+        run: ./ECMS/buildDebug/UnitTests
