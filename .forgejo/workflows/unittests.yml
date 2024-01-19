@@ -1,0 +1,14 @@
+name: Run UnitTests
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  build-and-run-unittests:
+    runs-on: archLinux
+    steps:
+      - run: git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/EntityComponentMetaSystem.git ECMS
+      - run: cd ECMS && git checkout $GITHUB_REF_NAME
+      - run: cd ECMS && cmake -S src -B buildDebug -DCMAKE_BUILD_TYPE=Debug
+      - run: make -C ECMS/buildDebug && ./ECMS/buildDebug/UnitTests
