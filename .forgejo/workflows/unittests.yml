@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-run-unittests:
-    runs-on: [selfOldArchLinux, archLinux]
+    runs-on: archLinux
     steps:
       - run: git clone --depth=1 --no-single-branch https://git.seodisparate.com/stephenseo/EntityComponentMetaSystem.git ECMS
       - run: cd ECMS && git checkout $GITHUB_REF_NAME
