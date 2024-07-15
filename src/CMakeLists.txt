@@ -57,6 +57,7 @@ set(UnitTests_SOURCES
 add_executable(UnitTests ${UnitTests_SOURCES})
 target_link_libraries(UnitTests EntityComponentSystem)
 target_compile_features(UnitTests PUBLIC cxx_std_14)
+target_compile_options(UnitTests PRIVATE "-Wno-sign-compare")
 
 enable_testing()
 add_test(NAME UnitTests COMMAND UnitTests)
