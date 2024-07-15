@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
+#include "test_helpers.h"
 
 #include <EC/ThreadPool.hpp>
 
 using OneThreadPool = EC::ThreadPool<1>;
 using ThreeThreadPool = EC::ThreadPool<3>;
 
-TEST(ECThreadPool, OneThread) {
+void TEST_ECThreadPool_OneThread() {
     OneThreadPool p;
     std::atomic_int data;
     data.store(0);
@@ -36,7 +36,7 @@ TEST(ECThreadPool, OneThread) {
     ASSERT_EQ(data.load(), 11);
 }
 
-TEST(ECThreadPool, Simple) {
+void TEST_ECThreadPool_Simple() {
     ThreeThreadPool p;
     std::atomic_int data;
     data.store(0);
@@ -67,7 +67,7 @@ TEST(ECThreadPool, Simple) {
     ASSERT_EQ(data.load(), 11);
 }
 
-TEST(ECThreadPool, QueryCount) {
+void TEST_ECThreadPool_QueryCount() {
     {
         OneThreadPool oneP;
         ASSERT_EQ(1, oneP.getMaxThreadCount());
@@ -78,7 +78,7 @@ TEST(ECThreadPool, QueryCount) {
     }
 }
 
-TEST(ECThreadPool, easyStartAndWait) {
+void TEST_ECThreadPool_easyStartAndWait() {
     std::atomic_int data;
     data.store(0);
     {
@@ -90,7 +90,7 @@ TEST(ECThreadPool, easyStartAndWait) {
             }, &data);
         }
         oneP.easyStartAndWait();
-        EXPECT_EQ(20, data.load());
+        CHECK_EQ(20, data.load());
     }
     {
         ThreeThreadPool threeP;
@@ -101,6 +101,6 @@ TEST(ECThreadPool, easyStartAndWait) {
             }, &data);
         }
         threeP.easyStartAndWait();
-        EXPECT_EQ(40, data.load());
+        CHECK_EQ(40, data.load());
     }
 }
