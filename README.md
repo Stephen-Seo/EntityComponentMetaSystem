@@ -1,9 +1,7 @@
 # About
 
 EntityComponentMetaSystem is a header-only library. However, UnitTests can be
-built and run using cmake (gtest is a dependency).
-
-[(Note that gtest uses the BSD 3-Clause License.)](https://github.com/google/googletest/blob/master/LICENSE)
+built and run using cmake (gtest is ~~a dependency~~ no longer a dependency).
 
 # Generated Doxygen Documentation
 
