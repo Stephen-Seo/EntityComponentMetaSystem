@@ -3,60 +3,61 @@
 
 #include <cstring>
 #include <iostream>
+#include <atomic>
 
-extern int checks_checked;
-extern int checks_passed;
+extern std::atomic_int64_t checks_checked;
+extern std::atomic_int64_t checks_passed;
 
 // Macros for unit testing.
 
 #define CHECK_TRUE(x)                                                     \
   do {                                                                    \
-    ++checks_checked;                                                     \
+    checks_checked.fetch_add(1);                                                     \
     if (!(x)) {                                                           \
       std::cout << "CHECK_TRUE at line " << __LINE__ << " failed: " << #x \
                 << '\n';                                                  \
     } else {                                                              \
-      ++checks_passed;                                                    \
+      checks_passed.fetch_add(1);                                                    \
     }                                                                     \
   } while (false);
 #define ASSERT_TRUE(x)                                                    \
   do {                                                                    \
-    ++checks_checked;                                                     \
+    checks_checked.fetch_add(1);                                                     \
     if (!(x)) {                                                           \
       std::cout << "CHECK_TRUE at line " << __LINE__ << " failed: " << #x \
                 << '\n';                                                  \
       return;                                                             \
     } else {                                                              \
-      ++checks_passed;                                                    \
+      checks_passed.fetch_add(1);                                                    \
     }                                                                     \
   } while (false);
 #define CHECK_FALSE(x)                                                     \
   do {                                                                     \
-    ++checks_checked;                                                      \
+    checks_checked.fetch_add(1);                                                      \
     if (x) {                                                               \
       std::cout << "CHECK_FALSE at line " << __LINE__ << " failed: " << #x \
                 << '\n';                                                   \
     } else {                                                               \
-      ++checks_passed;                                                     \
+      checks_passed.fetch_add(1);                                                     \
     }                                                                      \
   } while (false);
 #define ASSERT_FALSE(x)                                                    \
   do {                                                                     \
-    ++checks_checked;                                                      \
+    checks_checked.fetch_add(1);                                                      \
     if (x) {                                                               \
       std::cout << "CHECK_FALSE at line " << __LINE__ << " failed: " << #x \
                 << '\n';                                                   \
       return;                                                              \
     } else {                                                               \
-      ++checks_passed;                                                     \
+      checks_passed.fetch_add(1);                                                     \
     }                                                                      \
   } while (false);
 
 #define CHECK_FLOAT(var, value)                                              \
   do {                                                                       \
-    ++checks_checked;                                                        \
+    checks_checked.fetch_add(1);                                                        \
     if ((var) > (value) - 0.0001F && (var) < (value) + 0.0001F) {            \
-      ++checks_passed;                                                       \
+      checks_passed.fetch_add(1);                                                       \
     } else {                                                                 \
       std::cout << "CHECK_FLOAT at line " << __LINE__ << " failed: " << #var \
                 << " != " << #value << '\n';                                 \
@@ -65,9 +66,9 @@ extern int checks_passed;
 
 #define CHECK_EQ(var, value)                                              \
   do {                                                                    \
-    ++checks_checked;                                                     \
+    checks_checked.fetch_add(1);                                                     \
     if ((var) == (value)) {                                               \
-      ++checks_passed;                                                    \
+      checks_passed.fetch_add(1);                                                    \
     } else {                                                              \
       std::cout << "CHECK_EQ at line " << __LINE__ << " failed: " << #var \
                 << " != " << #value << '\n';                              \
@@ -75,9 +76,9 @@ extern int checks_passed;
   } while (false);
 #define ASSERT_EQ(var, value)                                              \
   do {                                                                     \
-    ++checks_checked;                                                      \
+    checks_checked.fetch_add(1);                                                      \
     if ((var) == (value)) {                                                \
-      ++checks_passed;                                                     \
+      checks_passed.fetch_add(1);                                                     \
     } else {                                                               \
       std::cout << "ASSERT_EQ at line " << __LINE__ << " failed: " << #var \
                 << " != " << #value << '\n';                               \
@@ -86,9 +87,9 @@ extern int checks_passed;
   } while (false);
 #define CHECK_NE(var, value)                                              \
   do {                                                                    \
-    ++checks_checked;                                                     \
+    checks_checked.fetch_add(1);                                                     \
     if ((var) != (value)) {                                               \
-      ++checks_passed;                                                    \
+      checks_passed.fetch_add(1);                                                    \
     } else {                                                              \
       std::cout << "CHECK_NE at line " << __LINE__ << " failed: " << #var \
                 << " == " << #value << '\n';                              \
@@ -96,9 +97,9 @@ extern int checks_passed;
   } while (false);
 #define CHECK_GE(var, value)                                              \
   do {                                                                    \
-    ++checks_checked;                                                     \
+    checks_checked.fetch_add(1);                                                     \
     if ((var) >= (value)) {                                               \
-      ++checks_passed;                                                    \
+      checks_passed.fetch_add(1);                                                    \
     } else {                                                              \
       std::cout << "CHECK_GE at line " << __LINE__ << " failed: " << #var \
                 << " < " << #value << '\n';                               \
@@ -106,9 +107,9 @@ extern int checks_passed;
   } while (false);
 #define CHECK_LE(var, value)                                              \
   do {                                                                    \
-    ++checks_checked;                                                     \
+    checks_checked.fetch_add(1);                                                     \
     if ((var) <= (value)) {                                               \
-      ++checks_passed;                                                    \
+      checks_passed.fetch_add(1);                                                    \
     } else {                                                              \
       std::cout << "CHECK_LE at line " << __LINE__ << " failed: " << #var \
                 << " > " << #value << '\n';                               \
@@ -117,9 +118,9 @@ extern int checks_passed;
 
 #define CHECK_STREQ(str_a, str_b)                                             \
   do {                                                                        \
-    ++checks_checked;                                                         \
+    checks_checked.fetch_add(1);                                                         \
     if (std::strcmp((str_a), (str_b)) == 0) {                                 \
-      ++checks_passed;                                                        \
+      checks_passed.fetch_add(1);                                                        \
     } else {                                                                  \
       std::cout << "CHECK_STREQ at line " << __LINE__ << "failed: " << #str_a \
                 << " != " << #str_b << '\n';                                  \
