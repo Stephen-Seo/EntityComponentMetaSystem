@@ -1,7 +1,7 @@
 #include "test_helpers.h"
 
-int checks_checked = 0;
-int checks_passed = 0;
+std::atomic_int64_t checks_checked = std::atomic_int64_t(0);
+std::atomic_int64_t checks_passed = std::atomic_int64_t(0);
 
 int main() {
     TEST_EC_Bitset();
@@ -37,8 +37,8 @@ int main() {
     TEST_ECThreadPool_QueryCount();
     TEST_ECThreadPool_easyStartAndWait();
 
-    std::cout << "checks_checked: " << checks_checked << '\n'
-              << "checks_passed:  " << checks_passed << std::endl;
+    std::cout << "checks_checked: " << checks_checked.load() << '\n'
+              << "checks_passed:  " << checks_passed.load() << std::endl;
 
-    return checks_checked == checks_passed ? 0 : 1;
+    return checks_checked.load() == checks_passed.load() ? 0 : 1;
 }
