@@ -47,23 +47,19 @@ endif()
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/EC DESTINATION include)
 
 
-find_package(GTest)
-if(GTEST_FOUND)
-    set(UnitTests_SOURCES
-        test/MetaTest.cpp
-        test/ECTest.cpp
-        test/ThreadPoolTest.cpp
-        test/Main.cpp
-    )
+set(UnitTests_SOURCES
+    test/MetaTest.cpp
+    test/ECTest.cpp
+    test/ThreadPoolTest.cpp
+    test/Main.cpp
+)
 
-    add_executable(UnitTests ${UnitTests_SOURCES})
-    target_link_libraries(UnitTests EntityComponentSystem ${GTEST_LIBRARIES})
-    target_include_directories(UnitTests PUBLIC ${GTEST_INCLUDE_DIR})
-    target_compile_features(UnitTests PUBLIC cxx_std_14)
+add_executable(UnitTests ${UnitTests_SOURCES})
+target_link_libraries(UnitTests EntityComponentSystem)
+target_compile_features(UnitTests PUBLIC cxx_std_14)
 
-    enable_testing()
-    add_test(NAME UnitTests COMMAND UnitTests)
-endif()
+enable_testing()
+add_test(NAME UnitTests COMMAND UnitTests)
 
 add_executable(WillFailCompile ${WillFailCompile_SOURCES})
 set_target_properties(WillFailCompile PROPERTIES

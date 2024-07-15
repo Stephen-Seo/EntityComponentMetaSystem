@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
-        run: sudo /usr/bin/env DEBIAN_FRONTEND=noninteractive apt-get install libgtest-dev cmake
+        run: sudo /usr/bin/env DEBIAN_FRONTEND=noninteractive apt-get install cmake
       - name: Get sources
         run: git clone --depth=1 --no-single-branch https://github.com/Stephen-Seo/EntityComponentMetaSystem.git ECMS && cd ECMS && git checkout $GITHUB_REF_NAME
       - name: Build UnitTests
