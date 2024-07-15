@@ -24,7 +24,7 @@ int main() {
                           << ")\n";
             }
             if (pos->y != 2.0F) {
-                std::clog << "WARNING: pos->x is not 2.0F! (" << pos->y
+                std::clog << "WARNING: pos->y is not 2.0F! (" << pos->y
                           << ")\n";
             }
         },
