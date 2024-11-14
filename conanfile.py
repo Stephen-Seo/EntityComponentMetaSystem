@@ -18,3 +18,4 @@ class ECMSConan(ConanFile):
         # so it's recommended to set those as empty.
         self.cpp_info.bindirs = []
         self.cpp_info.libdirs = []
+        self.cpp_info.includedirs = ['src']
